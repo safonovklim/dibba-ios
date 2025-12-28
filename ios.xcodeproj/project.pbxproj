@@ -6,6 +6,15 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		4D6EFDCD2F01145100D21EB9 /* Dashboard in Frameworks */ = {isa = PBXBuildFile; productRef = 4D6EFDCC2F01145100D21EB9 /* Dashboard */; };
+		4D6EFDD02F01147100D21EB9 /* Feed in Frameworks */ = {isa = PBXBuildFile; productRef = 4D6EFDCF2F01147100D21EB9 /* Feed */; };
+		4D6EFDD32F01148A00D21EB9 /* Navigation in Frameworks */ = {isa = PBXBuildFile; productRef = 4D6EFDD22F01148A00D21EB9 /* Navigation */; };
+		4D6EFDD62F01149900D21EB9 /* Auth in Frameworks */ = {isa = PBXBuildFile; productRef = 4D6EFDD52F01149900D21EB9 /* Auth */; };
+		4D6EFDD92F0114AE00D21EB9 /* Onboarding in Frameworks */ = {isa = PBXBuildFile; productRef = 4D6EFDD82F0114AE00D21EB9 /* Onboarding */; };
+		4D6EFDDC2F0114C000D21EB9 /* Profile in Frameworks */ = {isa = PBXBuildFile; productRef = 4D6EFDDB2F0114C000D21EB9 /* Profile */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		4D5A40862E9A5FCA00A0755C /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -57,6 +66,12 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4D6EFDDC2F0114C000D21EB9 /* Profile in Frameworks */,
+				4D6EFDD32F01148A00D21EB9 /* Navigation in Frameworks */,
+				4D6EFDD02F01147100D21EB9 /* Feed in Frameworks */,
+				4D6EFDD92F0114AE00D21EB9 /* Onboarding in Frameworks */,
+				4D6EFDD62F01149900D21EB9 /* Auth in Frameworks */,
+				4D6EFDCD2F01145100D21EB9 /* Dashboard in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -130,6 +145,12 @@
 			);
 			name = ios;
 			packageProductDependencies = (
+				4D6EFDCC2F01145100D21EB9 /* Dashboard */,
+				4D6EFDCF2F01147100D21EB9 /* Feed */,
+				4D6EFDD22F01148A00D21EB9 /* Navigation */,
+				4D6EFDD52F01149900D21EB9 /* Auth */,
+				4D6EFDD82F0114AE00D21EB9 /* Onboarding */,
+				4D6EFDDB2F0114C000D21EB9 /* Profile */,
 			);
 			productName = ios;
 			productReference = 4D5A40742E9A5FC800A0755C /* ios.app */;
@@ -213,6 +234,14 @@
 			);
 			mainGroup = 4D5A406B2E9A5FC800A0755C;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				4D6EFDCB2F01145100D21EB9 /* XCLocalSwiftPackageReference "Packages/Dashboard" */,
+				4D6EFDCE2F01147100D21EB9 /* XCLocalSwiftPackageReference "Packages/Feed" */,
+				4D6EFDD12F01148A00D21EB9 /* XCLocalSwiftPackageReference "Packages/Navigation" */,
+				4D6EFDD42F01149900D21EB9 /* XCLocalSwiftPackageReference "Packages/Auth" */,
+				4D6EFDD72F0114AE00D21EB9 /* XCLocalSwiftPackageReference "Packages/Onboarding" */,
+				4D6EFDDA2F0114C000D21EB9 /* XCLocalSwiftPackageReference "Packages/Profile" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 4D5A40752E9A5FC800A0755C /* Products */;
 			projectDirPath = "";
@@ -613,6 +642,60 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		4D6EFDCB2F01145100D21EB9 /* XCLocalSwiftPackageReference "Packages/Dashboard" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/Dashboard;
+		};
+		4D6EFDCE2F01147100D21EB9 /* XCLocalSwiftPackageReference "Packages/Feed" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/Feed;
+		};
+		4D6EFDD12F01148A00D21EB9 /* XCLocalSwiftPackageReference "Packages/Navigation" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/Navigation;
+		};
+		4D6EFDD42F01149900D21EB9 /* XCLocalSwiftPackageReference "Packages/Auth" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/Auth;
+		};
+		4D6EFDD72F0114AE00D21EB9 /* XCLocalSwiftPackageReference "Packages/Onboarding" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/Onboarding;
+		};
+		4D6EFDDA2F0114C000D21EB9 /* XCLocalSwiftPackageReference "Packages/Profile" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/Profile;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		4D6EFDCC2F01145100D21EB9 /* Dashboard */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = Dashboard;
+		};
+		4D6EFDCF2F01147100D21EB9 /* Feed */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = Feed;
+		};
+		4D6EFDD22F01148A00D21EB9 /* Navigation */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = Navigation;
+		};
+		4D6EFDD52F01149900D21EB9 /* Auth */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = Auth;
+		};
+		4D6EFDD82F0114AE00D21EB9 /* Onboarding */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = Onboarding;
+		};
+		4D6EFDDB2F0114C000D21EB9 /* Profile */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = Profile;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 4D5A406C2E9A5FC800A0755C /* Project object */;
 }
