@@ -13,9 +13,13 @@ let package = Package(
             targets: ["Feed"]
         ),
     ],
+    dependencies: [
+        .package(path: "../Servicing"),
+    ],
     targets: [
         .target(
-            name: "Feed"
+            name: "Feed",
+            dependencies: ["Servicing"]
         ),
         .testTarget(
             name: "FeedTests",

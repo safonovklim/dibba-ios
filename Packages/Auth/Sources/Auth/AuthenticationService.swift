@@ -81,7 +81,7 @@ public final class AuthenticationService: AuthServicing, @unchecked Sendable {
                     .authentication()
                     .userInfo(withAccessToken: credentials.accessToken)
                     .start()
-                return AuthUser(from: userInfo)
+                return AuthUser(from: userInfo, accessToken: credentials.accessToken)
             } catch {
                 logger.error("Failed to get current user: \(error.localizedDescription)")
                 return nil
@@ -109,6 +109,7 @@ public final class AuthenticationService: AuthServicing, @unchecked Sendable {
         let credentials = try await Auth0
             .webAuth()
             .scope("openid profile email offline_access")
+            .audience("https://getlivepass.com")
             .start()
 
         let stored = credentialsManager.store(credentials: credentials)

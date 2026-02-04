@@ -3,31 +3,33 @@
 import PackageDescription
 
 let package = Package(
-    name: "ApiClient",
+    name: "Servicing",
     platforms: [
         .iOS(.v17)
     ],
     products: [
         .library(
-            name: "ApiClient",
-            targets: ["ApiClient"]
+            name: "Servicing",
+            targets: ["Servicing"]
         ),
     ],
     dependencies: [
         .package(url: "https://github.com/pointfreeco/swift-dependencies", from: "1.0.0"),
-        .package(path: "../Auth"),
+        .package(url: "https://github.com/pointfreeco/swift-sharing", from: "2.0.0"),
+        .package(path: "../APIClient"),
     ],
     targets: [
         .target(
-            name: "ApiClient",
+            name: "Servicing",
             dependencies: [
                 .product(name: "Dependencies", package: "swift-dependencies"),
-                "Auth",
+                .product(name: "Sharing", package: "swift-sharing"),
+                .product(name: "ApiClient", package: "APIClient"),
             ]
         ),
         .testTarget(
-            name: "ApiClientTests",
-            dependencies: ["ApiClient"]
+            name: "ServicingTests",
+            dependencies: ["Servicing"]
         ),
     ]
 )

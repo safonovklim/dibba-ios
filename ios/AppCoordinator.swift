@@ -4,6 +4,7 @@ import Dependencies
 import Navigation
 import Onboarding
 import os.log
+import Servicing
 import SwiftUI
 import UIKit
 
@@ -39,9 +40,13 @@ final class AppCoordinator: NavigationFlowCoordinating {
     @Dependency(\.accountManager) var accountManager
     @Dependency(\.firstLaunchService) var firstLaunchService
     @Dependency(\.appResetService) var appResetService
+    @Dependency(\.appResetServiceRegistrar) var appResetServiceRegistrar
 
     func start() {
         logger.info("AppCoordinator.start()")
+
+        // Register services for reset on logout
+        appResetServiceRegistrar.registerResetters()
 
         // Show splash while checking state
         showSplash()
@@ -152,6 +157,8 @@ final class AppCoordinator: NavigationFlowCoordinating {
 
         // Remove existing child
         removeChild()
+
+        // Note: Data is loaded lazily in each view's .task modifier
 
         let tabBarCoordinator = TabBarCoordinator(
             onLogout: { [weak self] in

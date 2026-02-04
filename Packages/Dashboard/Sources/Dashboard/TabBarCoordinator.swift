@@ -2,15 +2,19 @@ import Auth
 import Dependencies
 import Feed
 import Navigation
+import os.log
 import Profile
 import SwiftUI
 import UIKit
+
+private let logger = Logger(subsystem: "ai.dibba.ios", category: "TabBarCoordinator")
 
 @MainActor
 public final class TabBarCoordinator: CompositionCoordinating {
     // MARK: Lifecycle
 
     public init(onLogout: (() -> Void)? = nil) {
+        logger.debug("init")
         self.onLogout = onLogout
     }
 
@@ -21,18 +25,23 @@ public final class TabBarCoordinator: CompositionCoordinating {
     public let tabBarController = UITabBarController()
 
     public func start() {
+        logger.info("start - Setting up tab bar")
+
+        logger.debug("Creating DashboardView")
         let dashboardNav = makeNavController(
             root: DashboardView().wrapped(),
             title: "Dashboard",
             systemImage: "rectangle.grid.2x2"
         )
 
+        logger.debug("Creating FeedView")
         let feedNav = makeNavController(
             root: FeedView().wrapped(),
             title: "Feed",
             systemImage: "dot.radiowaves.left.and.right"
         )
 
+        logger.debug("Creating ProfileView")
         let profileNav = makeNavController(
             root: ProfileView(onLogout: onLogout).wrapped(),
             title: "Settings",
@@ -45,6 +54,7 @@ public final class TabBarCoordinator: CompositionCoordinating {
             profileNav,
         ]
         tabBarController.selectedIndex = 0
+        logger.info("Tab bar setup complete")
     }
 
     public func didFinish(coordinator: Coordinating) {

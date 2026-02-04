@@ -1,0 +1,29 @@
+# Xcode
+xcuserdata/
+DerivedData/
+*.xcscmblueprint
+*.xccheckout
+
+# Swift Package Manager
+.build/
+.swiftpm/xcode/package.xcworkspace/contents.xcworkspacedata
+.swiftpm/configuration/registries.json
+Packages/
+
+# CocoaPods
+Pods/
+
+# Carthage
+Carthage/Build/
+
+# macOS
+.DS_Store
+*.swp
+*~
+
+# Secrets
+.netrc
+*.xcconfig.local
+
+# Package.resolved - uncomment if you want to ignore it
+# Package.resolved

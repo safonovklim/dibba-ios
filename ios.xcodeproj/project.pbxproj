@@ -245,6 +245,8 @@
 				4D6EFDDA2F0114C000D21EB9 /* XCLocalSwiftPackageReference "Packages/Profile" */,
 				4D658E3E2F33811200D1DC39 /* XCLocalSwiftPackageReference "Packages/Auth" */,
 				4D1C712F2F338D5000261113 /* XCRemoteSwiftPackageReference "Auth0" */,
+				4D1C71742F33A4F400261113 /* XCLocalSwiftPackageReference "Packages/ApiClient" */,
+				4D1C71752F33A52800261113 /* XCLocalSwiftPackageReference "Packages/Servicing" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 4D5A40752E9A5FC800A0755C /* Products */;
@@ -653,6 +655,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
+		4D1C71742F33A4F400261113 /* XCLocalSwiftPackageReference "Packages/ApiClient" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/ApiClient;
+		};
+		4D1C71752F33A52800261113 /* XCLocalSwiftPackageReference "Packages/Servicing" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/Servicing;
+		};
 		4D658E3E2F33811200D1DC39 /* XCLocalSwiftPackageReference "Packages/Auth" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/Auth;

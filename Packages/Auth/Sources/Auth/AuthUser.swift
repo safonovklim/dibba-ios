@@ -10,6 +10,7 @@ public struct AuthUser: Sendable, Equatable {
     public let picture: URL?
     public let updatedAt: Date?
     public let nickname: String?
+    public let accessToken: String?
 
     public init(
         id: String,
@@ -18,7 +19,8 @@ public struct AuthUser: Sendable, Equatable {
         emailVerified: Bool? = nil,
         picture: URL? = nil,
         updatedAt: Date? = nil,
-        nickname: String? = nil
+        nickname: String? = nil,
+        accessToken: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -27,9 +29,10 @@ public struct AuthUser: Sendable, Equatable {
         self.picture = picture
         self.updatedAt = updatedAt
         self.nickname = nickname
+        self.accessToken = accessToken
     }
 
-    public init(from userInfo: UserInfo) {
+    public init(from userInfo: UserInfo, accessToken: String? = nil) {
         self.id = userInfo.sub
         self.name = userInfo.name
         self.email = userInfo.email
@@ -37,6 +40,7 @@ public struct AuthUser: Sendable, Equatable {
         self.picture = userInfo.picture
         self.updatedAt = userInfo.updatedAt
         self.nickname = userInfo.nickname
+        self.accessToken = accessToken
     }
 
     public var prettyJSON: String {
