@@ -6,63 +6,160 @@ import SwiftUI
 
 private let logger = Logger(subsystem: "ai.dibba.ios", category: "ProfileView")
 
-public struct ProfileView: View {
-    // MARK: Lifecycle
+// MARK: - Preference Options
 
+enum GoalOption: String, CaseIterable, Identifiable {
+    case retire, business, kids, travel, house, car, emergency, save
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .retire: return "Retire earlier"
+        case .business: return "Start new business"
+        case .kids: return "Raise kids"
+        case .travel: return "Travel"
+        case .house: return "Buy a house"
+        case .car: return "New car"
+        case .emergency: return "Build emergency fund"
+        case .save: return "Save for better future"
+        }
+    }
+
+    var emoji: String {
+        switch self {
+        case .retire: return "🌅"
+        case .business: return "🌐"
+        case .kids: return "👶"
+        case .travel: return "✈️"
+        case .house: return "🏠"
+        case .car: return "🚗"
+        case .emergency: return "👛"
+        case .save: return "🐷"
+        }
+    }
+}
+
+enum OccupationOption: String, CaseIterable, Identifiable {
+    case employed, freelancer, business, student, sabbatical, unemployed
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .employed: return "Employed"
+        case .freelancer: return "Freelancer"
+        case .business: return "Own Business"
+        case .student: return "Student"
+        case .sabbatical: return "Sabbatical"
+        case .unemployed: return "Unemployed"
+        }
+    }
+
+    var emoji: String {
+        switch self {
+        case .employed: return "💼"
+        case .freelancer: return "💻"
+        case .business: return "🏢"
+        case .student: return "🎓"
+        case .sabbatical: return "✈️"
+        case .unemployed: return "🏠"
+        }
+    }
+}
+
+enum HousingOption: String, CaseIterable, Identifiable {
+    case owner, rent_apt, rent_house, coliving
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .owner: return "Own Property"
+        case .rent_apt: return "Rental Apartment"
+        case .rent_house: return "Rental House/Villa"
+        case .coliving: return "Co-living / Shared"
+        }
+    }
+
+    var emoji: String {
+        switch self {
+        case .owner: return "🏡"
+        case .rent_apt: return "🏢"
+        case .rent_house: return "🏠"
+        case .coliving: return "👥"
+        }
+    }
+}
+
+enum TransportOption: String, CaseIterable, Identifiable {
+    case own_car, rental_car, public_transport
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .own_car: return "Own Car"
+        case .rental_car: return "Rental Car"
+        case .public_transport: return "Public Transport"
+        }
+    }
+
+    var emoji: String {
+        switch self {
+        case .own_car: return "🚗"
+        case .rental_car: return "🚙"
+        case .public_transport: return "🚌"
+        }
+    }
+}
+
+enum AgeOption: String, CaseIterable, Identifiable {
+    case under_20, twenties = "20s", thirties = "30s", forties = "40s", fifty_plus = "50_plus"
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .under_20: return "Under 20"
+        case .twenties: return "20s"
+        case .thirties: return "30s"
+        case .forties: return "40s"
+        case .fifty_plus: return "50+"
+        }
+    }
+}
+
+// MARK: - Profile View
+
+public struct ProfileView: View {
     public init(onLogout: (() -> Void)? = nil) {
         self.onLogout = onLogout
     }
 
-    // MARK: Public
-
     public var body: some View {
-        let _ = logger.debug("body rendered - profile: \(profile != nil), isLoadingProfile: \(isLoadingProfile), user: \(user != nil), isLoadingUser: \(isLoadingUser)")
-        ScrollView {
-            VStack(spacing: 24) {
-                // User Profile Section (from backend)
-                if let profile = profile {
-                    let _ = logger.debug("Rendering profileSection")
-                    profileSection(profile: profile)
-                } else if isLoadingProfile {
-                    let _ = logger.debug("Rendering loading state for profile")
-                    loadingSection(text: "Loading profile...")
-                } else {
-                    let _ = logger.debug("Profile section not rendered - profile is nil and not loading")
-                }
-
-                // Auth0 User Section
-                if let user = user {
-                    auth0UserSection(user: user)
-                } else if authService.authState == .authenticated && !isLoadingUser {
-                    loadingSection(text: "Loading user...")
-                } else if authService.authState != .authenticated {
-                    notAuthenticatedSection
-                }
-
-                Divider()
-
-                // Subscription Section
-                if let profile = profile {
-                    subscriptionSection(profile: profile)
-                }
-
-                // Notification Preferences
-                if let profile = profile {
-                    notificationSection(profile: profile)
-                }
-
-                // Account State Debug
-                accountStateSection
-
-                Spacer(minLength: 32)
-
-                // Logout Button
-                if authService.authState == .authenticated {
-                    logoutButton
+        let _ = logger.debug("body rendered - profile: \(profile != nil), isLoadingProfile: \(isLoadingProfile)")
+        List {
+            if let profile = profile {
+                profileSection(profile: profile)
+                subscriptionSection(profile: profile)
+                preferencesSection(profile: profile)
+                notificationsSection(profile: profile)
+                logoutSection
+            } else if isLoadingProfile {
+                Section {
+                    HStack {
+                        Spacer()
+                        ProgressView()
+                        Spacer()
+                    }
+                    .padding(.vertical, 40)
                 }
             }
-            .padding()
         }
+        .listStyle(.insetGrouped)
+        .listSectionSpacing(16)
+        .contentMargins(.horizontal, 16, for: .scrollContent)
         .navigationTitle("Settings")
         .task {
             await loadData()
@@ -70,331 +167,510 @@ public struct ProfileView: View {
         .refreshable {
             await loadData(force: true)
         }
-        .alert("Error", isPresented: $showingError) {
-            Button("OK") {
-                errorMessage = nil
-            }
-        } message: {
-            Text(errorMessage ?? "")
-        }
     }
 
-    // MARK: Private
+    // MARK: - Private
 
     @Dependency(\.authService) private var authService
     @Dependency(\.accountManager) private var accountManager
     @Dependency(\.profileService) private var profileService
 
-    @State private var user: AuthUser?
     @State private var profile: Servicing.Profile?
-    @State private var isLoadingUser = false
     @State private var isLoadingProfile = false
-    @State private var isLoggingOut = false
-    @State private var errorMessage: String?
-    @State private var showingError = false
-    @State private var accountState: AccountState = .needAuthenticationAndOnboarding
 
     private let onLogout: (() -> Void)?
 
     private func loadData(force: Bool = false) async {
         logger.info("loadData started, force: \(force)")
-        async let userTask: () = loadUser()
-        async let profileTask: () = loadProfile(force: force)
-        _ = await (userTask, profileTask)
-        logger.info("loadData completed")
-    }
-
-    private func loadUser() async {
-        logger.debug("loadUser started")
-        isLoadingUser = true
-        defer {
-            isLoadingUser = false
-            logger.debug("loadUser completed, isLoadingUser: false")
-        }
-
-        user = await authService.currentUser
-        accountState = await accountManager.state
-        logger.info("User loaded: \(user?.name ?? "nil"), accountState: \(String(describing: accountState))")
-    }
-
-    private func loadProfile(force: Bool = false) async {
-        logger.debug("loadProfile started, force: \(force)")
         isLoadingProfile = true
         defer {
             isLoadingProfile = false
-            logger.debug("loadProfile completed, isLoadingProfile: false")
+            logger.debug("loadData completed")
         }
 
         do {
             profile = try await profileService.getProfile(force: force)
-            logger.info("Profile loaded successfully: \(profile?.displayName ?? "nil"), plan: \(profile?.plan.rawValue ?? "nil")")
+            logger.info("Profile loaded: \(profile?.displayName ?? "nil")")
         } catch {
             logger.error("Profile loading failed: \(error.localizedDescription)")
-            // Profile loading failed - show Auth0 user info only
         }
     }
+
+    // MARK: - Profile Section
 
     @ViewBuilder
     private func profileSection(profile: Servicing.Profile) -> some View {
-        VStack(spacing: 16) {
-            // Profile Picture
-            if let pictureURL = profile.pictureURL {
-                AsyncImage(url: pictureURL) { image in
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                } placeholder: {
+        Section {
+            HStack(spacing: 16) {
+                if let pictureURL = profile.pictureURL {
+                    AsyncImage(url: pictureURL) { image in
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                    } placeholder: {
+                        Image(systemName: "person.circle.fill")
+                            .resizable()
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(width: 70, height: 70)
+                    .clipShape(Circle())
+                } else {
                     Image(systemName: "person.circle.fill")
                         .resizable()
-                        .foregroundStyle(.secondary)
-                }
-                .frame(width: 100, height: 100)
-                .clipShape(Circle())
-                .overlay(Circle().stroke(Color.secondary.opacity(0.3), lineWidth: 2))
-            } else {
-                Image(systemName: "person.circle.fill")
-                    .resizable()
-                    .frame(width: 100, height: 100)
-                    .foregroundStyle(.secondary)
-            }
-
-            // Name
-            if !profile.displayName.isEmpty {
-                Text(profile.displayName)
-                    .font(.title2)
-                    .fontWeight(.semibold)
-            }
-
-            // Email
-            if !profile.email.isEmpty {
-                HStack {
-                    Image(systemName: "envelope.fill")
-                        .foregroundStyle(.secondary)
-                    Text(profile.email)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            // Currency & Age
-            HStack(spacing: 16) {
-                if let currency = profile.currency {
-                    Label(currency, systemImage: "dollarsign.circle")
-                        .font(.caption)
+                        .frame(width: 70, height: 70)
                         .foregroundStyle(.secondary)
                 }
 
-                if let age = profile.age {
-                    Label(age, systemImage: "calendar")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(profile.displayName)
+                        .font(.title2)
+                        .fontWeight(.semibold)
 
-            // Member Since
-            Text("Member since \(formattedDate(profile.createdAt))")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
-        }
-        .padding()
-        .frame(maxWidth: .infinity)
-        .background(Color(.systemBackground))
-        .cornerRadius(16)
-        .shadow(color: .black.opacity(0.05), radius: 8, y: 2)
-    }
-
-    @ViewBuilder
-    private func auth0UserSection(user: AuthUser) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Image(systemName: "person.badge.key")
-                    .foregroundStyle(.blue)
-                Text("Auth0 User")
-                    .font(.headline)
-            }
-
-            VStack(alignment: .leading, spacing: 8) {
-                if let name = user.name {
-                    infoRow(label: "Name", value: name)
-                }
-                if let email = user.email {
-                    infoRow(label: "Email", value: email)
-                }
-                if let nickname = user.nickname {
-                    infoRow(label: "Nickname", value: "@\(nickname)")
-                }
-                infoRow(label: "User ID", value: user.id)
-            }
-            .padding()
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(.secondarySystemBackground))
-            .cornerRadius(8)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    @ViewBuilder
-    private func subscriptionSection(profile: Servicing.Profile) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Image(systemName: "star.circle.fill")
-                    .foregroundStyle(profile.isPremium ? .yellow : .secondary)
-                Text("Subscription")
-                    .font(.headline)
-            }
-
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Text("Plan")
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                    Text(profile.plan.displayName)
-                        .fontWeight(.medium)
-                        .foregroundStyle(profile.isPremium ? .yellow : .primary)
-                }
-
-                if let expiresAt = profile.planExpiresAt {
-                    HStack {
-                        Text("Expires")
+                    if !profile.email.isEmpty {
+                        Text(profile.email)
+                            .font(.subheadline)
                             .foregroundStyle(.secondary)
-                        Spacer()
-                        Text(formattedDate(expiresAt))
                     }
                 }
             }
-            .padding()
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(.secondarySystemBackground))
-            .cornerRadius(8)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    @ViewBuilder
-    private func notificationSection(profile: Servicing.Profile) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Image(systemName: "bell.fill")
-                    .foregroundStyle(.orange)
-                Text("Notifications")
-                    .font(.headline)
-            }
-
-            VStack(alignment: .leading, spacing: 8) {
-                notificationRow("Daily Report", enabled: profile.notifyDailyReport)
-                notificationRow("Weekly Report", enabled: profile.notifyWeeklyReport)
-                notificationRow("Monthly Report", enabled: profile.notifyMonthlyReport)
-                notificationRow("Annual Report", enabled: profile.notifyAnnualReport)
-                notificationRow("Recommendations", enabled: profile.notifyNewRecommendation)
-            }
-            .padding()
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(.secondarySystemBackground))
-            .cornerRadius(8)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    @ViewBuilder
-    private func notificationRow(_ label: String, enabled: Bool) -> some View {
-        HStack {
-            Text(label)
-                .foregroundStyle(.secondary)
-            Spacer()
-            Image(systemName: enabled ? "checkmark.circle.fill" : "circle")
-                .foregroundStyle(enabled ? .green : .secondary)
+            .padding(.vertical, 8)
+        } footer: {
+            Text("Member since \(formattedDate(profile.createdAt))")
         }
     }
 
-    @ViewBuilder
-    private func infoRow(label: String, value: String) -> some View {
-        HStack(alignment: .top) {
-            Text(label)
-                .foregroundStyle(.secondary)
-                .frame(width: 80, alignment: .leading)
-            Text(value)
-                .font(.system(.body, design: .monospaced))
-                .lineLimit(1)
-                .truncationMode(.middle)
-        }
-        .font(.caption)
-    }
+    // MARK: - Subscription Section
 
     @ViewBuilder
-    private func loadingSection(text: String) -> some View {
-        VStack(spacing: 12) {
-            ProgressView()
-            Text(text)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-        }
-        .padding()
-    }
-
-    @ViewBuilder
-    private var notAuthenticatedSection: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "person.slash")
-                .font(.largeTitle)
-                .foregroundStyle(.secondary)
-            Text("Not authenticated")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-        }
-        .padding()
-    }
-
-    @ViewBuilder
-    private var accountStateSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Image(systemName: "info.circle")
-                    .foregroundStyle(.orange)
-                Text("Account State")
-                    .font(.headline)
-            }
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Auth: \(String(describing: authService.authState))")
-                    .font(.caption.monospaced())
-                Text("Account: \(String(describing: accountState))")
-                    .font(.caption.monospaced())
-            }
-            .padding()
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(.secondarySystemBackground))
-            .cornerRadius(8)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    @ViewBuilder
-    private var logoutButton: some View {
-        Button(role: .destructive) {
-            onLogout?()
-        } label: {
-            HStack {
-                if isLoggingOut {
-                    ProgressView()
-                        .tint(.white)
-                } else {
-                    Image(systemName: "rectangle.portrait.and.arrow.right")
-                    Text("Sign Out")
+    private func subscriptionSection(profile: Servicing.Profile) -> some View {
+        Section("Subscription") {
+            LabeledContent("Plan") {
+                HStack(spacing: 4) {
+                    if profile.isPremium {
+                        Image(systemName: "star.fill")
+                            .foregroundStyle(.yellow)
+                            .font(.caption)
+                    }
+                    Text(profile.plan.displayName)
                 }
             }
-            .font(.headline)
-            .frame(maxWidth: .infinity)
-            .frame(height: 50)
+
+            if let startsAt = profile.planStartsAt {
+                LabeledContent("Started", value: formattedDate(startsAt))
+            }
+
+            if let expiresAt = profile.planExpiresAt {
+                LabeledContent("Expires", value: formattedDate(expiresAt))
+            }
         }
-        .buttonStyle(.borderedProminent)
-        .tint(.red)
-        .disabled(isLoggingOut)
     }
+
+    // MARK: - Preferences Section
+
+    @ViewBuilder
+    private func preferencesSection(profile: Servicing.Profile) -> some View {
+        Section("Preferences") {
+            NavigationLink {
+                MultiSelectView(
+                    title: "Dreams",
+                    options: GoalOption.allCases,
+                    selected: Set(profile.goals),
+                    onToggle: { option, isSelected in
+                        logger.info("Dream changed: \(option.rawValue), selected: \(isSelected), was: \(profile.goals.contains(option.rawValue))")
+                    }
+                )
+            } label: {
+                LabeledContent("Dreams") {
+                    Text(formatSelected(profile.goals, from: GoalOption.self))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+
+            NavigationLink {
+                MultiSelectView(
+                    title: "Occupation",
+                    options: OccupationOption.allCases,
+                    selected: Set(profile.occupation),
+                    onToggle: { option, isSelected in
+                        logger.info("Occupation changed: \(option.rawValue), selected: \(isSelected), was: \(profile.occupation.contains(option.rawValue))")
+                    }
+                )
+            } label: {
+                LabeledContent("Occupation") {
+                    Text(formatSelected(profile.occupation, from: OccupationOption.self))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+
+            NavigationLink {
+                MultiSelectView(
+                    title: "Housing",
+                    options: HousingOption.allCases,
+                    selected: Set(profile.housing),
+                    onToggle: { option, isSelected in
+                        logger.info("Housing changed: \(option.rawValue), selected: \(isSelected), was: \(profile.housing.contains(option.rawValue))")
+                    }
+                )
+            } label: {
+                LabeledContent("Housing") {
+                    Text(formatSelected(profile.housing, from: HousingOption.self))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+
+            NavigationLink {
+                MultiSelectView(
+                    title: "Commute",
+                    options: TransportOption.allCases,
+                    selected: Set(profile.transport),
+                    onToggle: { option, isSelected in
+                        logger.info("Commute changed: \(option.rawValue), selected: \(isSelected), was: \(profile.transport.contains(option.rawValue))")
+                    }
+                )
+            } label: {
+                LabeledContent("Commute") {
+                    Text(formatSelected(profile.transport, from: TransportOption.self))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+
+            NavigationLink {
+                SingleSelectView(
+                    title: "Age Group",
+                    options: AgeOption.allCases,
+                    selected: profile.age,
+                    onSelect: { option in
+                        logger.info("Age changed: \(option?.rawValue ?? "nil"), was: \(profile.age ?? "nil")")
+                    }
+                )
+            } label: {
+                LabeledContent("Age Group") {
+                    if let age = profile.age, let option = AgeOption(rawValue: age) {
+                        Text(option.label)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text("Not Set")
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+            }
+
+            NavigationLink {
+                CurrencySelectView(
+                    selected: profile.currency,
+                    onSelect: { currency in
+                        logger.info("Currency changed: \(currency?.id ?? "nil"), was: \(profile.currency ?? "nil")")
+                    }
+                )
+            } label: {
+                LabeledContent("Currency") {
+                    if let currency = Currency.find(by: profile.currency) {
+                        Text("\(currency.emoji) \(currency.id)")
+                            .foregroundStyle(.secondary)
+                    } else if let currencyCode = profile.currency {
+                        Text(currencyCode)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text("Not Set")
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Notifications Section
+
+    @ViewBuilder
+    private func notificationsSection(profile: Servicing.Profile) -> some View {
+        Section("Notifications") {
+            NotificationToggle(
+                title: "Daily Reports",
+                isOn: profile.notifyDailyReport
+            ) { newValue in
+                logger.info("Daily Reports changed: \(newValue), was: \(profile.notifyDailyReport)")
+            }
+
+            NotificationToggle(
+                title: "Weekly Reports",
+                isOn: profile.notifyWeeklyReport
+            ) { newValue in
+                logger.info("Weekly Reports changed: \(newValue), was: \(profile.notifyWeeklyReport)")
+            }
+
+            NotificationToggle(
+                title: "Monthly Reports",
+                isOn: profile.notifyMonthlyReport
+            ) { newValue in
+                logger.info("Monthly Reports changed: \(newValue), was: \(profile.notifyMonthlyReport)")
+            }
+
+            NotificationToggle(
+                title: "Annual Reports",
+                isOn: profile.notifyAnnualReport
+            ) { newValue in
+                logger.info("Annual Reports changed: \(newValue), was: \(profile.notifyAnnualReport)")
+            }
+        }
+    }
+
+    // MARK: - Logout Section
+
+    @ViewBuilder
+    private var logoutSection: some View {
+        Section {
+            Button(role: .destructive) {
+                onLogout?()
+            } label: {
+                HStack {
+                    Spacer()
+                    Text("Sign Out")
+                    Spacer()
+                }
+            }
+        }
+    }
+
+    // MARK: - Helpers
 
     private func formattedDate(_ date: Date) -> String {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
         formatter.timeStyle = .none
         return formatter.string(from: date)
+    }
+
+    private func formatSelected<T: RawRepresentable & CaseIterable>(_ selected: [String], from type: T.Type) -> String where T.RawValue == String, T: Identifiable {
+        guard !selected.isEmpty else { return "None" }
+        let items = selected.compactMap { id -> (emoji: String, label: String)? in
+            guard let option = T.allCases.first(where: { $0.rawValue == id }) else { return nil }
+            if let goal = option as? GoalOption { return (goal.emoji, goal.label) }
+            if let occupation = option as? OccupationOption { return (occupation.emoji, occupation.label) }
+            if let housing = option as? HousingOption { return (housing.emoji, housing.label) }
+            if let transport = option as? TransportOption { return (transport.emoji, transport.label) }
+            return nil
+        }
+        if items.count == 1 { return "\(items[0].emoji) \(items[0].label)" }
+        return items.map { $0.emoji }.joined(separator: " ")
+    }
+}
+
+// MARK: - Notification Toggle
+
+private struct NotificationToggle: View {
+    let title: String
+    let isOn: Bool
+    let onChange: (Bool) -> Void
+
+    @State private var localIsOn: Bool = false
+
+    init(title: String, isOn: Bool, onChange: @escaping (Bool) -> Void) {
+        self.title = title
+        self.isOn = isOn
+        self.onChange = onChange
+        self._localIsOn = State(initialValue: isOn)
+    }
+
+    var body: some View {
+        Toggle(title, isOn: $localIsOn)
+            .onChange(of: localIsOn) { _, newValue in
+                if newValue != isOn {
+                    onChange(newValue)
+                }
+            }
+    }
+}
+
+// MARK: - Multi Select View
+
+private struct MultiSelectView<Option: Identifiable & RawRepresentable>: View where Option.RawValue == String {
+    let title: String
+    let options: [Option]
+    let selected: Set<String>
+    let onToggle: (Option, Bool) -> Void
+
+    @State private var localSelected: Set<String>
+
+    init(title: String, options: [Option], selected: Set<String>, onToggle: @escaping (Option, Bool) -> Void) {
+        self.title = title
+        self.options = options
+        self.selected = selected
+        self.onToggle = onToggle
+        self._localSelected = State(initialValue: selected)
+    }
+
+    var body: some View {
+        List {
+            ForEach(options) { option in
+                let isSelected = localSelected.contains(option.rawValue)
+                Button {
+                    if isSelected {
+                        localSelected.remove(option.rawValue)
+                    } else {
+                        localSelected.insert(option.rawValue)
+                    }
+                    onToggle(option, !isSelected)
+                } label: {
+                    HStack {
+                        if let goal = option as? GoalOption {
+                            Text(goal.emoji)
+                            Text(goal.label)
+                        } else if let occupation = option as? OccupationOption {
+                            Text(occupation.emoji)
+                            Text(occupation.label)
+                        } else if let housing = option as? HousingOption {
+                            Text(housing.emoji)
+                            Text(housing.label)
+                        } else if let transport = option as? TransportOption {
+                            Text(transport.emoji)
+                            Text(transport.label)
+                        }
+
+                        Spacer()
+
+                        if isSelected {
+                            Image(systemName: "checkmark")
+                                .foregroundStyle(.blue)
+                        }
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.primary)
+            }
+        }
+        .listStyle(.insetGrouped)
+        .navigationTitle(title)
+    }
+}
+
+// MARK: - Single Select View
+
+private struct SingleSelectView<Option: Identifiable & RawRepresentable>: View where Option.RawValue == String {
+    let title: String
+    let options: [Option]
+    let selected: String?
+    let onSelect: (Option?) -> Void
+
+    @State private var localSelected: String?
+    @Environment(\.dismiss) private var dismiss
+
+    init(title: String, options: [Option], selected: String?, onSelect: @escaping (Option?) -> Void) {
+        self.title = title
+        self.options = options
+        self.selected = selected
+        self.onSelect = onSelect
+        self._localSelected = State(initialValue: selected)
+    }
+
+    var body: some View {
+        List {
+            ForEach(options) { option in
+                let isSelected = localSelected == option.rawValue
+                Button {
+                    localSelected = option.rawValue
+                    onSelect(option)
+                } label: {
+                    HStack {
+                        if let age = option as? AgeOption {
+                            Text(age.label)
+                        }
+
+                        Spacer()
+
+                        if isSelected {
+                            Image(systemName: "checkmark")
+                                .foregroundStyle(.blue)
+                        }
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.primary)
+            }
+        }
+        .listStyle(.insetGrouped)
+        .navigationTitle(title)
+    }
+}
+
+// MARK: - Currency Select View
+
+private struct CurrencySelectView: View {
+    let selected: String?
+    let onSelect: (Currency?) -> Void
+
+    @State private var localSelected: String?
+    @State private var searchText = ""
+
+    init(selected: String?, onSelect: @escaping (Currency?) -> Void) {
+        self.selected = selected
+        self.onSelect = onSelect
+        self._localSelected = State(initialValue: selected)
+    }
+
+    private var groupedCurrencies: [String: [Currency]] {
+        Dictionary(grouping: filteredCurrencies) { $0.continent }
+    }
+
+    private var sortedContinents: [String] {
+        let order = ["North America", "South America", "Europe", "Middle East", "Asia", "Oceania", "Africa"]
+        return groupedCurrencies.keys.sorted { lhs, rhs in
+            let lhsIndex = order.firstIndex(of: lhs) ?? Int.max
+            let rhsIndex = order.firstIndex(of: rhs) ?? Int.max
+            return lhsIndex < rhsIndex
+        }
+    }
+
+    private var filteredCurrencies: [Currency] {
+        if searchText.isEmpty {
+            return Currency.allCurrencies
+        }
+        return Currency.allCurrencies.filter {
+            $0.label.localizedCaseInsensitiveContains(searchText) ||
+            $0.id.localizedCaseInsensitiveContains(searchText) ||
+            $0.continent.localizedCaseInsensitiveContains(searchText)
+        }
+    }
+
+    var body: some View {
+        List {
+            ForEach(sortedContinents, id: \.self) { continent in
+                Section(continent) {
+                    ForEach(groupedCurrencies[continent] ?? []) { currency in
+                        let isSelected = localSelected == currency.id
+                        Button {
+                            localSelected = currency.id
+                            onSelect(currency)
+                        } label: {
+                            HStack {
+                                Text(currency.emoji)
+                                Text(currency.label)
+
+                                Spacer()
+
+                                Text(currency.id)
+                                    .foregroundStyle(.secondary)
+
+                                if isSelected {
+                                    Image(systemName: "checkmark")
+                                        .foregroundStyle(.blue)
+                                }
+                            }
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.primary)
+                    }
+                }
+            }
+        }
+        .listStyle(.insetGrouped)
+        .navigationTitle("Currency")
+        .searchable(text: $searchText, prompt: "Search currencies")
     }
 }
