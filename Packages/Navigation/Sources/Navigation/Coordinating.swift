@@ -1,5 +1,6 @@
 import Foundation
 
+@MainActor
 public protocol Coordinating: AnyObject {
     func start()
     func finish()
@@ -13,6 +14,7 @@ public extension Coordinating {
     }
 }
 
+@MainActor
 public protocol CoordinatorDelegate: AnyObject {
     func didFinish(coordinator: Coordinating)
 }

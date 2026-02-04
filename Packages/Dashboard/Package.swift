@@ -13,9 +13,21 @@ let package = Package(
             targets: ["Dashboard"]
         ),
     ],
+    dependencies: [
+        .package(path: "../Navigation"),
+        .package(path: "../Feed"),
+        .package(path: "../Profile"),
+        .package(path: "../Auth"),
+    ],
     targets: [
         .target(
-            name: "Dashboard"
+            name: "Dashboard",
+            dependencies: [
+                "Navigation",
+                "Feed",
+                "Profile",
+                "Auth",
+            ]
         ),
         .testTarget(
             name: "DashboardTests",

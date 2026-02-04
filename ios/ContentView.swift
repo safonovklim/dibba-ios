@@ -9,7 +9,8 @@ import SwiftUI
 
 struct ContentView: View {
     var body: some View {
-        AppCoordinatorView()
+        CoordinatorHostView()
+            .ignoresSafeArea() // let UIKit handle safe areas to avoid double padding on bars
     }
 }
 

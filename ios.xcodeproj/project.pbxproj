@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		4D1C71312F338D7600261113 /* Auth0.plist in Resources */ = {isa = PBXBuildFile; fileRef = 4D1C71302F338D7600261113 /* Auth0.plist */; };
 		4D6EFDCD2F01145100D21EB9 /* Dashboard in Frameworks */ = {isa = PBXBuildFile; productRef = 4D6EFDCC2F01145100D21EB9 /* Dashboard */; };
 		4D6EFDD02F01147100D21EB9 /* Feed in Frameworks */ = {isa = PBXBuildFile; productRef = 4D6EFDCF2F01147100D21EB9 /* Feed */; };
 		4D6EFDD32F01148A00D21EB9 /* Navigation in Frameworks */ = {isa = PBXBuildFile; productRef = 4D6EFDD22F01148A00D21EB9 /* Navigation */; };
@@ -33,6 +34,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		4D1C71302F338D7600261113 /* Auth0.plist */ = {isa = PBXFileReference; lastKnownFileType = text; path = Auth0.plist; sourceTree = "<group>"; };
 		4D5A40742E9A5FC800A0755C /* ios.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ios.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		4D5A40852E9A5FCA00A0755C /* iosTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = iosTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		4D5A408F2E9A5FCA00A0755C /* iosUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = iosUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -95,6 +97,7 @@
 		4D5A406B2E9A5FC800A0755C = {
 			isa = PBXGroup;
 			children = (
+				4D1C71302F338D7600261113 /* Auth0.plist */,
 				4D5A40A72E9A5FD900A0755C /* Packages */,
 				4D5A40762E9A5FC800A0755C /* ios */,
 				4D5A40882E9A5FCA00A0755C /* iosTests */,
@@ -238,9 +241,10 @@
 				4D6EFDCB2F01145100D21EB9 /* XCLocalSwiftPackageReference "Packages/Dashboard" */,
 				4D6EFDCE2F01147100D21EB9 /* XCLocalSwiftPackageReference "Packages/Feed" */,
 				4D6EFDD12F01148A00D21EB9 /* XCLocalSwiftPackageReference "Packages/Navigation" */,
-				4D6EFDD42F01149900D21EB9 /* XCLocalSwiftPackageReference "Packages/Auth" */,
 				4D6EFDD72F0114AE00D21EB9 /* XCLocalSwiftPackageReference "Packages/Onboarding" */,
 				4D6EFDDA2F0114C000D21EB9 /* XCLocalSwiftPackageReference "Packages/Profile" */,
+				4D658E3E2F33811200D1DC39 /* XCLocalSwiftPackageReference "Packages/Auth" */,
+				4D1C712F2F338D5000261113 /* XCRemoteSwiftPackageReference "Auth0" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 4D5A40752E9A5FC800A0755C /* Products */;
@@ -259,6 +263,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4D1C71312F338D7600261113 /* Auth0.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -443,6 +448,7 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SupportingFiles/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Dibba.ai;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
@@ -450,6 +456,7 @@
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*]" = YES;
+				INFOPLIST_KEY_UIStatusBarStyle = "";
 				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphoneos*]" = UIStatusBarStyleDefault;
 				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
@@ -484,6 +491,7 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SupportingFiles/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Dibba.ai;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
@@ -491,6 +499,7 @@
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*]" = YES;
+				INFOPLIST_KEY_UIStatusBarStyle = "";
 				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphoneos*]" = UIStatusBarStyleDefault;
 				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
@@ -644,6 +653,10 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
+		4D658E3E2F33811200D1DC39 /* XCLocalSwiftPackageReference "Packages/Auth" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/Auth;
+		};
 		4D6EFDCB2F01145100D21EB9 /* XCLocalSwiftPackageReference "Packages/Dashboard" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/Dashboard;
@@ -656,10 +669,6 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/Navigation;
 		};
-		4D6EFDD42F01149900D21EB9 /* XCLocalSwiftPackageReference "Packages/Auth" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = Packages/Auth;
-		};
 		4D6EFDD72F0114AE00D21EB9 /* XCLocalSwiftPackageReference "Packages/Onboarding" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/Onboarding;
@@ -670,29 +679,46 @@
 		};
 /* End XCLocalSwiftPackageReference section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+		4D1C712F2F338D5000261113 /* XCRemoteSwiftPackageReference "Auth0" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/auth0/Auth0.swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.17.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
 		4D6EFDCC2F01145100D21EB9 /* Dashboard */ = {
 			isa = XCSwiftPackageProductDependency;
+			package = 4D6EFDCB2F01145100D21EB9 /* XCLocalSwiftPackageReference "Packages/Dashboard" */;
 			productName = Dashboard;
 		};
 		4D6EFDCF2F01147100D21EB9 /* Feed */ = {
 			isa = XCSwiftPackageProductDependency;
+			package = 4D6EFDCE2F01147100D21EB9 /* XCLocalSwiftPackageReference "Packages/Feed" */;
 			productName = Feed;
 		};
 		4D6EFDD22F01148A00D21EB9 /* Navigation */ = {
 			isa = XCSwiftPackageProductDependency;
+			package = 4D6EFDD12F01148A00D21EB9 /* XCLocalSwiftPackageReference "Packages/Navigation" */;
 			productName = Navigation;
 		};
 		4D6EFDD52F01149900D21EB9 /* Auth */ = {
 			isa = XCSwiftPackageProductDependency;
+			package = 4D658E3E2F33811200D1DC39 /* XCLocalSwiftPackageReference "Packages/Auth" */;
 			productName = Auth;
 		};
 		4D6EFDD82F0114AE00D21EB9 /* Onboarding */ = {
 			isa = XCSwiftPackageProductDependency;
+			package = 4D6EFDD72F0114AE00D21EB9 /* XCLocalSwiftPackageReference "Packages/Onboarding" */;
 			productName = Onboarding;
 		};
 		4D6EFDDB2F0114C000D21EB9 /* Profile */ = {
 			isa = XCSwiftPackageProductDependency;
+			package = 4D6EFDDA2F0114C000D21EB9 /* XCLocalSwiftPackageReference "Packages/Profile" */;
 			productName = Profile;
 		};
 /* End XCSwiftPackageProductDependency section */
