@@ -17,36 +17,34 @@ public struct FeedView: View {
 
     public var body: some View {
         let _ = logger.debug("body rendered - transactions: \(transactions.count), isLoading: \(isLoading), hasError: \(errorMessage != nil), hasMore: \(nextToken != nil)")
-        NavigationStack {
-            Group {
-                if isLoading && transactions.isEmpty {
-                    let _ = logger.debug("Rendering loading state")
-                    loadingView
-                } else if let error = errorMessage, transactions.isEmpty {
-                    let _ = logger.debug("Rendering error state: \(error)")
-                    errorView(error)
-                } else if transactions.isEmpty {
-                    let _ = logger.debug("Rendering empty state")
-                    emptyView
-                } else {
-                    let _ = logger.debug("Rendering transaction list with \(transactions.count) items")
-                    transactionList
+        Group {
+            if isLoading && transactions.isEmpty {
+                let _ = logger.debug("Rendering loading state")
+                loadingView
+            } else if let error = errorMessage, transactions.isEmpty {
+                let _ = logger.debug("Rendering error state: \(error)")
+                errorView(error)
+            } else if transactions.isEmpty {
+                let _ = logger.debug("Rendering empty state")
+                emptyView
+            } else {
+                let _ = logger.debug("Rendering transaction list with \(transactions.count) items")
+                transactionList
+            }
+        }
+        .navigationTitle("Feed")
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                if isLoading && !transactions.isEmpty {
+                    ProgressView()
                 }
             }
-            .navigationTitle("Feed")
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    if isLoading && !transactions.isEmpty {
-                        ProgressView()
-                    }
-                }
-            }
-            .task {
-                await loadTransactions()
-            }
-            .refreshable {
-                await loadTransactions(force: true)
-            }
+        }
+        .task {
+            await loadTransactions()
+        }
+        .refreshable {
+            await loadTransactions(force: true)
         }
     }
 

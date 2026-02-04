@@ -17,60 +17,58 @@ public struct ProfileView: View {
 
     public var body: some View {
         let _ = logger.debug("body rendered - profile: \(profile != nil), isLoadingProfile: \(isLoadingProfile), user: \(user != nil), isLoadingUser: \(isLoadingUser)")
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: 24) {
-                    // User Profile Section (from backend)
-                    if let profile = profile {
-                        let _ = logger.debug("Rendering profileSection")
-                        profileSection(profile: profile)
-                    } else if isLoadingProfile {
-                        let _ = logger.debug("Rendering loading state for profile")
-                        loadingSection(text: "Loading profile...")
-                    } else {
-                        let _ = logger.debug("Profile section not rendered - profile is nil and not loading")
-                    }
-
-                    // Auth0 User Section
-                    if let user = user {
-                        auth0UserSection(user: user)
-                    } else if authService.authState == .authenticated && !isLoadingUser {
-                        loadingSection(text: "Loading user...")
-                    } else if authService.authState != .authenticated {
-                        notAuthenticatedSection
-                    }
-
-                    Divider()
-
-                    // Subscription Section
-                    if let profile = profile {
-                        subscriptionSection(profile: profile)
-                    }
-
-                    // Notification Preferences
-                    if let profile = profile {
-                        notificationSection(profile: profile)
-                    }
-
-                    // Account State Debug
-                    accountStateSection
-
-                    Spacer(minLength: 32)
-
-                    // Logout Button
-                    if authService.authState == .authenticated {
-                        logoutButton
-                    }
+        ScrollView {
+            VStack(spacing: 24) {
+                // User Profile Section (from backend)
+                if let profile = profile {
+                    let _ = logger.debug("Rendering profileSection")
+                    profileSection(profile: profile)
+                } else if isLoadingProfile {
+                    let _ = logger.debug("Rendering loading state for profile")
+                    loadingSection(text: "Loading profile...")
+                } else {
+                    let _ = logger.debug("Profile section not rendered - profile is nil and not loading")
                 }
-                .padding()
+
+                // Auth0 User Section
+                if let user = user {
+                    auth0UserSection(user: user)
+                } else if authService.authState == .authenticated && !isLoadingUser {
+                    loadingSection(text: "Loading user...")
+                } else if authService.authState != .authenticated {
+                    notAuthenticatedSection
+                }
+
+                Divider()
+
+                // Subscription Section
+                if let profile = profile {
+                    subscriptionSection(profile: profile)
+                }
+
+                // Notification Preferences
+                if let profile = profile {
+                    notificationSection(profile: profile)
+                }
+
+                // Account State Debug
+                accountStateSection
+
+                Spacer(minLength: 32)
+
+                // Logout Button
+                if authService.authState == .authenticated {
+                    logoutButton
+                }
             }
-            .navigationTitle("Settings")
-            .task {
-                await loadData()
-            }
-            .refreshable {
-                await loadData(force: true)
-            }
+            .padding()
+        }
+        .navigationTitle("Settings")
+        .task {
+            await loadData()
+        }
+        .refreshable {
+            await loadData(force: true)
         }
         .alert("Error", isPresented: $showingError) {
             Button("OK") {
