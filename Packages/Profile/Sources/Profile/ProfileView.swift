@@ -1,3 +1,4 @@
+import ApiClient
 import Auth
 import Dependencies
 import os.log
@@ -177,6 +178,8 @@ public struct ProfileView: View {
 
     @State private var profile: Servicing.Profile?
     @State private var isLoadingProfile = false
+    @State private var isUpdating = false
+    @State private var showLogoutConfirmation = false
 
     private let onLogout: (() -> Void)?
 
@@ -193,6 +196,20 @@ public struct ProfileView: View {
             logger.info("Profile loaded: \(profile?.displayName ?? "nil")")
         } catch {
             logger.error("Profile loading failed: \(error.localizedDescription)")
+        }
+    }
+
+    private func updateProfile(_ input: UpdateProfileInput) async {
+        logger.info("updateProfile called with input")
+        isUpdating = true
+        defer { isUpdating = false }
+
+        do {
+            let updatedProfile = try await profileService.updateProfile(input)
+            profile = updatedProfile
+            logger.info("Profile updated successfully")
+        } catch {
+            logger.error("Profile update failed: \(error.localizedDescription)")
         }
     }
 
@@ -275,8 +292,9 @@ public struct ProfileView: View {
                     title: "Dreams",
                     options: GoalOption.allCases,
                     selected: Set(profile.goals),
-                    onToggle: { option, isSelected in
-                        logger.info("Dream changed: \(option.rawValue), selected: \(isSelected), was: \(profile.goals.contains(option.rawValue))")
+                    onUpdate: { newValues in
+                        logger.info("Dreams updated: \(newValues)")
+                        await updateProfile(UpdateProfileInput(goals: Array(newValues)))
                     }
                 )
             } label: {
@@ -292,8 +310,9 @@ public struct ProfileView: View {
                     title: "Occupation",
                     options: OccupationOption.allCases,
                     selected: Set(profile.occupation),
-                    onToggle: { option, isSelected in
-                        logger.info("Occupation changed: \(option.rawValue), selected: \(isSelected), was: \(profile.occupation.contains(option.rawValue))")
+                    onUpdate: { newValues in
+                        logger.info("Occupation updated: \(newValues)")
+                        await updateProfile(UpdateProfileInput(occupation: Array(newValues)))
                     }
                 )
             } label: {
@@ -309,8 +328,9 @@ public struct ProfileView: View {
                     title: "Housing",
                     options: HousingOption.allCases,
                     selected: Set(profile.housing),
-                    onToggle: { option, isSelected in
-                        logger.info("Housing changed: \(option.rawValue), selected: \(isSelected), was: \(profile.housing.contains(option.rawValue))")
+                    onUpdate: { newValues in
+                        logger.info("Housing updated: \(newValues)")
+                        await updateProfile(UpdateProfileInput(housing: Array(newValues)))
                     }
                 )
             } label: {
@@ -326,8 +346,9 @@ public struct ProfileView: View {
                     title: "Commute",
                     options: TransportOption.allCases,
                     selected: Set(profile.transport),
-                    onToggle: { option, isSelected in
-                        logger.info("Commute changed: \(option.rawValue), selected: \(isSelected), was: \(profile.transport.contains(option.rawValue))")
+                    onUpdate: { newValues in
+                        logger.info("Commute updated: \(newValues)")
+                        await updateProfile(UpdateProfileInput(transport: Array(newValues)))
                     }
                 )
             } label: {
@@ -343,8 +364,9 @@ public struct ProfileView: View {
                     title: "Age Group",
                     options: AgeOption.allCases,
                     selected: profile.age,
-                    onSelect: { option in
-                        logger.info("Age changed: \(option?.rawValue ?? "nil"), was: \(profile.age ?? "nil")")
+                    onUpdate: { newValue in
+                        logger.info("Age updated: \(newValue ?? "nil")")
+                        await updateProfile(UpdateProfileInput(age: newValue))
                     }
                 )
             } label: {
@@ -362,8 +384,9 @@ public struct ProfileView: View {
             NavigationLink {
                 CurrencySelectView(
                     selected: profile.currency,
-                    onSelect: { currency in
-                        logger.info("Currency changed: \(currency?.id ?? "nil"), was: \(profile.currency ?? "nil")")
+                    onUpdate: { newValue in
+                        logger.info("Currency updated: \(newValue ?? "nil")")
+                        await updateProfile(UpdateProfileInput(currency: newValue))
                     }
                 )
             } label: {
@@ -392,28 +415,32 @@ public struct ProfileView: View {
                 title: "Daily Reports",
                 isOn: profile.notifyDailyReport
             ) { newValue in
-                logger.info("Daily Reports changed: \(newValue), was: \(profile.notifyDailyReport)")
+                logger.info("Daily Reports updated: \(newValue)")
+                await updateProfile(UpdateProfileInput(notifyDailyReport: newValue))
             }
 
             NotificationToggle(
                 title: "Weekly Reports",
                 isOn: profile.notifyWeeklyReport
             ) { newValue in
-                logger.info("Weekly Reports changed: \(newValue), was: \(profile.notifyWeeklyReport)")
+                logger.info("Weekly Reports updated: \(newValue)")
+                await updateProfile(UpdateProfileInput(notifyWeeklyReport: newValue))
             }
 
             NotificationToggle(
                 title: "Monthly Reports",
                 isOn: profile.notifyMonthlyReport
             ) { newValue in
-                logger.info("Monthly Reports changed: \(newValue), was: \(profile.notifyMonthlyReport)")
+                logger.info("Monthly Reports updated: \(newValue)")
+                await updateProfile(UpdateProfileInput(notifyMonthlyReport: newValue))
             }
 
             NotificationToggle(
                 title: "Annual Reports",
                 isOn: profile.notifyAnnualReport
             ) { newValue in
-                logger.info("Annual Reports changed: \(newValue), was: \(profile.notifyAnnualReport)")
+                logger.info("Annual Reports updated: \(newValue)")
+                await updateProfile(UpdateProfileInput(notifyAnnualReport: newValue))
             }
         }
     }
@@ -424,13 +451,21 @@ public struct ProfileView: View {
     private var logoutSection: some View {
         Section {
             Button(role: .destructive) {
-                onLogout?()
+                showLogoutConfirmation = true
             } label: {
                 HStack {
                     Spacer()
                     Text("Sign Out")
                     Spacer()
                 }
+            }
+            .alert("Sign Out", isPresented: $showLogoutConfirmation) {
+                Button("Cancel", role: .cancel) {}
+                Button("Sign Out", role: .destructive) {
+                    onLogout?()
+                }
+            } message: {
+                Text("Are you sure you want to sign out?")
             }
         }
     }
@@ -464,24 +499,40 @@ public struct ProfileView: View {
 private struct NotificationToggle: View {
     let title: String
     let isOn: Bool
-    let onChange: (Bool) -> Void
+    let onUpdate: (Bool) async -> Void
 
     @State private var localIsOn: Bool = false
+    @State private var isUpdating = false
 
-    init(title: String, isOn: Bool, onChange: @escaping (Bool) -> Void) {
+    init(title: String, isOn: Bool, onUpdate: @escaping (Bool) async -> Void) {
         self.title = title
         self.isOn = isOn
-        self.onChange = onChange
+        self.onUpdate = onUpdate
         self._localIsOn = State(initialValue: isOn)
     }
 
     var body: some View {
-        Toggle(title, isOn: $localIsOn)
-            .onChange(of: localIsOn) { _, newValue in
-                if newValue != isOn {
-                    onChange(newValue)
+        Toggle(isOn: $localIsOn) {
+            HStack(spacing: 8) {
+                if isUpdating {
+                    ProgressView()
+                        .scaleEffect(0.7)
                 }
+                Text(title)
             }
+        }
+        .disabled(isUpdating)
+        .onChange(of: localIsOn) { _, newValue in
+            guard newValue != isOn, !isUpdating else { return }
+            Task {
+                isUpdating = true
+                await onUpdate(newValue)
+                isUpdating = false
+            }
+        }
+        .onChange(of: isOn) { _, newValue in
+            localIsOn = newValue
+        }
     }
 }
 
@@ -491,15 +542,16 @@ private struct MultiSelectView<Option: Identifiable & RawRepresentable>: View wh
     let title: String
     let options: [Option]
     let selected: Set<String>
-    let onToggle: (Option, Bool) -> Void
+    let onUpdate: (Set<String>) async -> Void
 
     @State private var localSelected: Set<String>
+    @State private var isUpdating = false
 
-    init(title: String, options: [Option], selected: Set<String>, onToggle: @escaping (Option, Bool) -> Void) {
+    init(title: String, options: [Option], selected: Set<String>, onUpdate: @escaping (Set<String>) async -> Void) {
         self.title = title
         self.options = options
         self.selected = selected
-        self.onToggle = onToggle
+        self.onUpdate = onUpdate
         self._localSelected = State(initialValue: selected)
     }
 
@@ -513,7 +565,11 @@ private struct MultiSelectView<Option: Identifiable & RawRepresentable>: View wh
                     } else {
                         localSelected.insert(option.rawValue)
                     }
-                    onToggle(option, !isSelected)
+                    Task {
+                        isUpdating = true
+                        await onUpdate(localSelected)
+                        isUpdating = false
+                    }
                 } label: {
                     HStack {
                         if let goal = option as? GoalOption {
@@ -541,10 +597,21 @@ private struct MultiSelectView<Option: Identifiable & RawRepresentable>: View wh
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(.primary)
+                .disabled(isUpdating)
             }
         }
         .listStyle(.insetGrouped)
         .navigationTitle(title)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                if isUpdating {
+                    ProgressView()
+                }
+            }
+        }
+        .onChange(of: selected) { _, newValue in
+            localSelected = newValue
+        }
     }
 }
 
@@ -554,16 +621,17 @@ private struct SingleSelectView<Option: Identifiable & RawRepresentable>: View w
     let title: String
     let options: [Option]
     let selected: String?
-    let onSelect: (Option?) -> Void
+    let onUpdate: (String?) async -> Void
 
     @State private var localSelected: String?
+    @State private var isUpdating = false
     @Environment(\.dismiss) private var dismiss
 
-    init(title: String, options: [Option], selected: String?, onSelect: @escaping (Option?) -> Void) {
+    init(title: String, options: [Option], selected: String?, onUpdate: @escaping (String?) async -> Void) {
         self.title = title
         self.options = options
         self.selected = selected
-        self.onSelect = onSelect
+        self.onUpdate = onUpdate
         self._localSelected = State(initialValue: selected)
     }
 
@@ -573,7 +641,11 @@ private struct SingleSelectView<Option: Identifiable & RawRepresentable>: View w
                 let isSelected = localSelected == option.rawValue
                 Button {
                     localSelected = option.rawValue
-                    onSelect(option)
+                    Task {
+                        isUpdating = true
+                        await onUpdate(option.rawValue)
+                        isUpdating = false
+                    }
                 } label: {
                     HStack {
                         if let age = option as? AgeOption {
@@ -591,10 +663,21 @@ private struct SingleSelectView<Option: Identifiable & RawRepresentable>: View w
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(.primary)
+                .disabled(isUpdating)
             }
         }
         .listStyle(.insetGrouped)
         .navigationTitle(title)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                if isUpdating {
+                    ProgressView()
+                }
+            }
+        }
+        .onChange(of: selected) { _, newValue in
+            localSelected = newValue
+        }
     }
 }
 
@@ -602,14 +685,15 @@ private struct SingleSelectView<Option: Identifiable & RawRepresentable>: View w
 
 private struct CurrencySelectView: View {
     let selected: String?
-    let onSelect: (Currency?) -> Void
+    let onUpdate: (String?) async -> Void
 
     @State private var localSelected: String?
     @State private var searchText = ""
+    @State private var isUpdating = false
 
-    init(selected: String?, onSelect: @escaping (Currency?) -> Void) {
+    init(selected: String?, onUpdate: @escaping (String?) async -> Void) {
         self.selected = selected
-        self.onSelect = onSelect
+        self.onUpdate = onUpdate
         self._localSelected = State(initialValue: selected)
     }
 
@@ -645,7 +729,11 @@ private struct CurrencySelectView: View {
                         let isSelected = localSelected == currency.id
                         Button {
                             localSelected = currency.id
-                            onSelect(currency)
+                            Task {
+                                isUpdating = true
+                                await onUpdate(currency.id)
+                                isUpdating = false
+                            }
                         } label: {
                             HStack {
                                 Text(currency.emoji)
@@ -665,6 +753,7 @@ private struct CurrencySelectView: View {
                         }
                         .buttonStyle(.plain)
                         .foregroundStyle(.primary)
+                        .disabled(isUpdating)
                     }
                 }
             }
@@ -672,5 +761,15 @@ private struct CurrencySelectView: View {
         .listStyle(.insetGrouped)
         .navigationTitle("Currency")
         .searchable(text: $searchText, prompt: "Search currencies")
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                if isUpdating {
+                    ProgressView()
+                }
+            }
+        }
+        .onChange(of: selected) { _, newValue in
+            localSelected = newValue
+        }
     }
 }
