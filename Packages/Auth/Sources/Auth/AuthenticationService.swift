@@ -1,160 +1,159 @@
 import Auth0
+import Dependencies
 import Foundation
 import os.log
 
 private let logger = Logger(subsystem: "ai.dibba.ios", category: "Auth")
 
-// MARK: - AuthUser
+// MARK: - Protocol
 
-public struct AuthUser: Sendable {
-    public let id: String
-    public let name: String?
-    public let email: String?
-    public let emailVerified: String?
-    public let picture: String?
-    public let updatedAt: String?
-    public let nickname: String?
-    public let sub: String?
+/// Protocol for authentication service - enables testing and mocking
+public protocol AuthServicing: Sendable {
+    /// Current authentication state
+    var authState: AuthState { get }
 
-    public init(from user: UserInfo) {
-        self.id = user.sub
-        self.name = user.name
-        self.email = user.email
-        self.emailVerified = user.emailVerified.map { String($0) }
-        self.picture = user.picture?.absoluteString
-        self.updatedAt = user.updatedAt.map { ISO8601DateFormatter().string(from: $0) }
-        self.nickname = user.nickname
-        self.sub = user.sub
-    }
+    /// Stream of authentication state changes
+    var authStateStream: AsyncStream<AuthState> { get }
 
-    public var prettyJSON: String {
-        let dict: [String: Any?] = [
-            "id": id,
-            "name": name,
-            "email": email,
-            "emailVerified": emailVerified,
-            "picture": picture,
-            "updatedAt": updatedAt,
-            "nickname": nickname,
-            "sub": sub,
-        ]
-        let filtered = dict.compactMapValues { $0 }
-        if let data = try? JSONSerialization.data(withJSONObject: filtered, options: .prettyPrinted),
-           let jsonString = String(data: data, encoding: .utf8)
-        {
-            return jsonString
-        }
-        return "{}"
-    }
+    /// Current user profile (nil if not authenticated)
+    var currentUser: AuthUser? { get async }
+
+    /// Sign in with Auth0 WebAuth
+    func signIn() async throws
+
+    /// Sign out and clear session
+    func signOut() async throws
+
+    /// Check and refresh authentication status
+    func checkAuthenticationStatus() async
+
+    /// Clear stored credentials
+    func clearCredentials()
 }
 
-// MARK: - AuthenticationService
+// MARK: - Implementation
 
-@MainActor
-public final class AuthenticationService: ObservableObject, @unchecked Sendable {
+public final class AuthenticationService: AuthServicing, @unchecked Sendable {
     // MARK: Lifecycle
 
     public init() {
         self.credentialsManager = CredentialsManager(authentication: Auth0.authentication())
+
+        // Create the auth state stream
+        let (stream, continuation) = AsyncStream<AuthState>.makeStream()
+        self._authStateStream = stream
+        self._continuation = continuation
+
         logger.info("AuthenticationService initialized")
+
+        // Check initial state
         Task {
             await checkAuthenticationStatus()
         }
     }
 
+    deinit {
+        _continuation.finish()
+    }
+
     // MARK: Public
 
-    @Published public private(set) var isAuthenticated = false
-    @Published public private(set) var user: AuthUser?
-    @Published public private(set) var isLoading = false
-    @Published public var errorMessage: String?
+    public private(set) var authState: AuthState = .unauthenticated {
+        didSet {
+            if oldValue != authState {
+                logger.info("AuthState changed: \(String(describing: oldValue)) -> \(String(describing: self.authState))")
+                _continuation.yield(authState)
+            }
+        }
+    }
+
+    public var authStateStream: AsyncStream<AuthState> {
+        _authStateStream
+    }
+
+    public var currentUser: AuthUser? {
+        get async {
+            guard authState == .authenticated else { return nil }
+
+            do {
+                let credentials = try await credentialsManager.credentials()
+                let userInfo = try await Auth0
+                    .authentication()
+                    .userInfo(withAccessToken: credentials.accessToken)
+                    .start()
+                return AuthUser(from: userInfo)
+            } catch {
+                logger.error("Failed to get current user: \(error.localizedDescription)")
+                return nil
+            }
+        }
+    }
 
     public func checkAuthenticationStatus() async {
         logger.info("Checking authentication status...")
-        isLoading = true
-        defer { isLoading = false }
 
         do {
             let credentials = try await credentialsManager.credentials()
-            logger.info("Found valid credentials, user is authenticated")
-            isAuthenticated = true
-            await fetchUserInfo(accessToken: credentials.accessToken)
+            // We have valid credentials
+            authState = .authenticated
+            logger.info("Valid credentials found - authenticated")
         } catch {
-            logger.info("No valid credentials found: \(error.localizedDescription)")
-            isAuthenticated = false
-            user = nil
+            logger.info("No valid credentials: \(error.localizedDescription)")
+            authState = .unauthenticated
         }
     }
 
-    public func login() async {
-        logger.info("Starting login...")
-        isLoading = true
-        errorMessage = nil
-        defer {
-            isLoading = false
-            logger.info("Login completed. isAuthenticated: \(self.isAuthenticated), error: \(self.errorMessage ?? "none")")
-        }
+    public func signIn() async throws {
+        logger.info("Starting Auth0 sign in...")
 
-        do {
-            logger.info("Opening Auth0 WebAuth...")
-            let credentials = try await Auth0
-                .webAuth()
-                .scope("openid profile email offline_access")
-                .start()
+        let credentials = try await Auth0
+            .webAuth()
+            .scope("openid profile email offline_access")
+            .start()
 
-            logger.info("WebAuth completed successfully, storing credentials...")
-            let stored = credentialsManager.store(credentials: credentials)
-            logger.info("Credentials stored: \(stored)")
+        let stored = credentialsManager.store(credentials: credentials)
+        logger.info("Credentials stored: \(stored)")
 
-            isAuthenticated = true
-            logger.info("Set isAuthenticated = true")
-
-            await fetchUserInfo(accessToken: credentials.accessToken)
-            logger.info("User info fetched, login complete")
-        } catch {
-            logger.error("Login failed: \(error.localizedDescription)")
-            errorMessage = "Login failed: \(error.localizedDescription)"
-        }
+        authState = .authenticated
+        logger.info("Sign in completed successfully")
     }
 
-    public func logout() async {
-        logger.info("Starting logout...")
-        isLoading = true
-        defer { isLoading = false }
+    public func signOut() async throws {
+        logger.info("Starting sign out...")
 
         do {
             try await Auth0.webAuth().clearSession()
-            _ = credentialsManager.clear()
-            isAuthenticated = false
-            user = nil
-            logger.info("Logout completed successfully")
         } catch {
-            logger.error("Logout failed: \(error.localizedDescription)")
-            errorMessage = "Logout failed: \(error.localizedDescription)"
+            logger.warning("Failed to clear Auth0 session: \(error.localizedDescription)")
+            // Continue with local cleanup even if remote fails
         }
+
+        clearCredentials()
+        authState = .unauthenticated
+        logger.info("Sign out completed")
+    }
+
+    public func clearCredentials() {
+        _ = credentialsManager.clear()
+        logger.info("Credentials cleared")
     }
 
     // MARK: Private
 
     private let credentialsManager: CredentialsManager
-
-    private func fetchUserInfo(accessToken: String) async {
-        logger.info("Fetching user info...")
-        do {
-            let userInfo = try await Auth0
-                .authentication()
-                .userInfo(withAccessToken: accessToken)
-                .start()
-            user = AuthUser(from: userInfo)
-            logger.info("User info fetched: \(userInfo.email ?? "no email")")
-        } catch {
-            logger.error("Failed to fetch user info: \(error.localizedDescription)")
-        }
-    }
+    private let _authStateStream: AsyncStream<AuthState>
+    private let _continuation: AsyncStream<AuthState>.Continuation
 }
 
-// MARK: - Shared Instance
+// MARK: - Dependency Registration
 
-public extension AuthenticationService {
-    @MainActor static let shared = AuthenticationService()
+extension AuthenticationService: DependencyKey {
+    public static let liveValue: any AuthServicing = AuthenticationService()
+}
+
+public extension DependencyValues {
+    var authService: any AuthServicing {
+        get { self[AuthenticationService.self] }
+        set { self[AuthenticationService.self] = newValue }
+    }
 }

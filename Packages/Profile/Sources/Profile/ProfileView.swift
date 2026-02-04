@@ -1,14 +1,11 @@
 import Auth
+import Dependencies
 import SwiftUI
 
 public struct ProfileView: View {
     // MARK: Lifecycle
 
-    public init(
-        authService: AuthenticationService = .shared,
-        onLogout: (() -> Void)? = nil
-    ) {
-        self._authService = ObservedObject(wrappedValue: authService)
+    public init(onLogout: (() -> Void)? = nil) {
         self.onLogout = onLogout
     }
 
@@ -19,9 +16,9 @@ public struct ProfileView: View {
             ScrollView {
                 VStack(spacing: 24) {
                     // User Profile Section
-                    if let user = authService.user {
+                    if let user = user {
                         userProfileSection(user: user)
-                    } else if authService.isAuthenticated {
+                    } else if authService.authState == .authenticated {
                         loadingSection
                     } else {
                         notAuthenticatedSection
@@ -30,43 +27,66 @@ public struct ProfileView: View {
                     Divider()
 
                     // User JSON Details
-                    if let user = authService.user {
+                    if let user = user {
                         userJSONSection(user: user)
                     }
+
+                    // Account State Debug
+                    accountStateSection
 
                     Spacer(minLength: 32)
 
                     // Logout Button
-                    if authService.isAuthenticated {
+                    if authService.authState == .authenticated {
                         logoutButton
                     }
                 }
                 .padding()
             }
             .navigationTitle("Settings")
+            .task {
+                await loadUser()
+            }
             .refreshable {
-                await authService.checkAuthenticationStatus()
+                await loadUser()
             }
         }
-        .alert("Error", isPresented: .constant(authService.errorMessage != nil)) {
-            Button("OK") { authService.errorMessage = nil }
+        .alert("Error", isPresented: $showingError) {
+            Button("OK") {
+                errorMessage = nil
+            }
         } message: {
-            Text(authService.errorMessage ?? "")
+            Text(errorMessage ?? "")
         }
     }
 
     // MARK: Private
 
-    @ObservedObject private var authService: AuthenticationService
+    @Dependency(\.authService) private var authService
+    @Dependency(\.accountManager) private var accountManager
+
+    @State private var user: AuthUser?
+    @State private var isLoading = false
+    @State private var isLoggingOut = false
+    @State private var errorMessage: String?
+    @State private var showingError = false
+    @State private var accountState: AccountState = .needAuthenticationAndOnboarding
+
     private let onLogout: (() -> Void)?
+
+    private func loadUser() async {
+        isLoading = true
+        defer { isLoading = false }
+
+        user = await authService.currentUser
+        accountState = await accountManager.state
+    }
 
     @ViewBuilder
     private func userProfileSection(user: AuthUser) -> some View {
         VStack(spacing: 16) {
             // Profile Picture
-            if let pictureURLString = user.picture,
-               let pictureURL = URL(string: pictureURLString)
-            {
+            if let pictureURL = user.picture {
                 AsyncImage(url: pictureURL) { image in
                     image
                         .resizable()
@@ -164,15 +184,36 @@ public struct ProfileView: View {
     }
 
     @ViewBuilder
+    private var accountStateSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: "info.circle")
+                    .foregroundStyle(.orange)
+                Text("Account State")
+                    .font(.headline)
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Auth: \(String(describing: authService.authState))")
+                    .font(.caption.monospaced())
+                Text("Account: \(String(describing: accountState))")
+                    .font(.caption.monospaced())
+            }
+            .padding()
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color(.secondarySystemBackground))
+            .cornerRadius(8)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder
     private var logoutButton: some View {
         Button(role: .destructive) {
-            Task {
-                await authService.logout()
-                onLogout?()
-            }
+            onLogout?()
         } label: {
             HStack {
-                if authService.isLoading {
+                if isLoggingOut {
                     ProgressView()
                         .tint(.white)
                 } else {
@@ -186,6 +227,6 @@ public struct ProfileView: View {
         }
         .buttonStyle(.borderedProminent)
         .tint(.red)
-        .disabled(authService.isLoading)
+        .disabled(isLoggingOut)
     }
 }

@@ -1,4 +1,5 @@
 import Auth
+import Dependencies
 import Feed
 import Navigation
 import Profile
@@ -9,11 +10,7 @@ import UIKit
 public final class TabBarCoordinator: CompositionCoordinating {
     // MARK: Lifecycle
 
-    public init(
-        authService: AuthenticationService = .shared,
-        onLogout: (() -> Void)? = nil
-    ) {
-        self.authService = authService
+    public init(onLogout: (() -> Void)? = nil) {
         self.onLogout = onLogout
     }
 
@@ -37,7 +34,7 @@ public final class TabBarCoordinator: CompositionCoordinating {
         )
 
         let profileNav = makeNavController(
-            root: ProfileView(authService: authService, onLogout: onLogout).wrapped(),
+            root: ProfileView(onLogout: onLogout).wrapped(),
             title: "Settings",
             systemImage: "gearshape.fill"
         )
@@ -56,7 +53,6 @@ public final class TabBarCoordinator: CompositionCoordinating {
 
     // MARK: Private
 
-    private let authService: AuthenticationService
     private let onLogout: (() -> Void)?
 
     private func makeNavController(

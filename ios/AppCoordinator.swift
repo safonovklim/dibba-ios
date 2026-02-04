@@ -1,8 +1,10 @@
 import Auth
 import Dashboard
+import Dependencies
 import Navigation
 import Onboarding
 import os.log
+import SwiftUI
 import UIKit
 
 private let logger = Logger(subsystem: "ai.dibba.ios", category: "AppCoordinator")
@@ -15,12 +17,15 @@ final class AppCoordinator: NavigationFlowCoordinating {
 
     init(rootNavigationController: UINavigationController) {
         self.rootNavigationController = rootNavigationController
-        self.authService = AuthenticationService.shared
         logger.info("AppCoordinator initialized")
     }
 
     convenience init() {
         self.init(rootNavigationController: UINavigationController())
+    }
+
+    deinit {
+        stateSubscriptionTask?.cancel()
     }
 
     // MARK: Internal
@@ -30,33 +35,84 @@ final class AppCoordinator: NavigationFlowCoordinating {
 
     let rootNavigationController: UINavigationController
 
+    @Dependency(\.authService) var authService
+    @Dependency(\.accountManager) var accountManager
+    @Dependency(\.firstLaunchService) var firstLaunchService
+    @Dependency(\.appResetService) var appResetService
+
     func start() {
         logger.info("AppCoordinator.start()")
-        // Check if already authenticated on app launch
+
+        // Show splash while checking state
+        showSplash()
+
         Task {
+            // Handle first launch (clear stale auth from reinstall)
+            await firstLaunchService.handleFirstLaunchIfNeeded()
+
+            // Check current auth status
             await authService.checkAuthenticationStatus()
-            logger.info("Auth check complete. isAuthenticated: \(self.authService.isAuthenticated)")
-            if authService.isAuthenticated {
-                // Skip auth and onboarding if already logged in
-                startHome()
-            } else {
-                startAuthFlow()
-            }
+
+            // Get account state and navigate accordingly
+            let state = await accountManager.state
+            logger.info("Initial account state: \(String(describing: state))")
+
+            navigateToState(state)
         }
     }
 
     // MARK: Private
 
-    private let authService: AuthenticationService
+    private var stateSubscriptionTask: Task<Void, Never>?
+    private var currentState: AccountState?
+
+    private func showSplash() {
+        // Simple splash view while loading
+        let splashView = SplashView()
+        rootNavigationController.setViewControllers(
+            [splashView.wrapped(hideNavBar: true)],
+            animated: false
+        )
+    }
+
+    private func navigateToState(_ state: AccountState) {
+        // Avoid duplicate navigation to the same state
+        guard state != currentState else {
+            logger.info("Already showing state \(String(describing: state)), skipping navigation")
+            return
+        }
+
+        logger.info("Navigating to state: \(String(describing: state))")
+        currentState = state
+
+        switch state {
+        case .needAuthenticationAndOnboarding, .needAuthentication:
+            startAuthFlow()
+        case .needOnboarding:
+            startOnboardingFlow()
+        case .userReady:
+            startHome()
+        }
+    }
 
     private func startAuthFlow() {
         logger.info("startAuthFlow()")
+
+        // Remove existing child
+        removeChild()
+
         let auth = AuthFlow(
             rootNavigationController: rootNavigationController,
-            authService: authService,
             onAuthenticated: { [weak self] in
-                logger.info("onAuthenticated callback - self is \(self == nil ? "nil" : "valid")")
-                self?.startOnboardingFlow()
+                logger.info("onAuthenticated callback")
+                guard let self else { return }
+
+                Task {
+                    let state = await self.accountManager.state
+                    await MainActor.run {
+                        self.navigateToState(state)
+                    }
+                }
             }
         )
         add(child: auth)
@@ -65,11 +121,25 @@ final class AppCoordinator: NavigationFlowCoordinating {
 
     private func startOnboardingFlow() {
         logger.info("startOnboardingFlow()")
+
+        // Remove existing child
+        removeChild()
+
         let onboarding = OnboardingFlow(
             rootNavigationController: rootNavigationController,
             onFinish: { [weak self] in
                 logger.info("onFinish callback from onboarding")
-                self?.startHome()
+                guard let self else { return }
+
+                // Mark onboarding as complete
+                self.accountManager.markOnboardingComplete()
+
+                Task {
+                    let state = await self.accountManager.state
+                    await MainActor.run {
+                        self.navigateToState(state)
+                    }
+                }
             }
         )
         add(child: onboarding)
@@ -79,8 +149,11 @@ final class AppCoordinator: NavigationFlowCoordinating {
 
     private func startHome() {
         logger.info("startHome()")
+
+        // Remove existing child
+        removeChild()
+
         let tabBarCoordinator = TabBarCoordinator(
-            authService: authService,
             onLogout: { [weak self] in
                 self?.handleLogout()
             }
@@ -96,8 +169,40 @@ final class AppCoordinator: NavigationFlowCoordinating {
 
     private func handleLogout() {
         logger.info("handleLogout()")
-        // Clear the child coordinator and return to auth flow
-        removeChild()
-        startAuthFlow()
+
+        // Reset current state to allow navigation
+        currentState = nil
+
+        Task {
+            // Sign out from Auth0
+            try? await authService.signOut()
+
+            // Reset all app state
+            try? await appResetService.resetAllState()
+
+            // Navigate back to auth
+            await MainActor.run {
+                startAuthFlow()
+                currentState = .needAuthenticationAndOnboarding
+            }
+        }
+    }
+}
+
+// MARK: - SplashView
+
+private struct SplashView: View {
+    var body: some View {
+        VStack(spacing: 20) {
+            Image(systemName: "shield.checkered")
+                .font(.system(size: 80))
+                .foregroundStyle(.blue)
+
+            Text("Dibba")
+                .font(.largeTitle)
+                .fontWeight(.bold)
+
+            ProgressView()
+        }
     }
 }
