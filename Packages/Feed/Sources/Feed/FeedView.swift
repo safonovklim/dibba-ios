@@ -24,33 +24,22 @@ public struct FeedView: View {
     @State private var isLoading = false
     @State private var isRefreshing = false
     @State private var errorMessage: String?
-    @State private var nextToken: String?
     @State private var searchText = ""
     @State private var selectedTransactionIndex: Int = 0
     @State private var showingTransactionDetail = false
 
     private var groupedTransactions: [TransactionSection] {
-        var sections: [TransactionSection] = []
-        var currentDate = ""
-        var currentTransactions: [Servicing.Transaction] = []
-
+        let grouped = Dictionary(grouping: transactions) { $0.fullDate }
+        var seen = Set<String>()
+        var orderedDates: [String] = []
         for transaction in transactions {
-            if transaction.fullDate != currentDate {
-                if !currentTransactions.isEmpty {
-                    sections.append(TransactionSection(date: currentDate, transactions: currentTransactions))
-                }
-                currentDate = transaction.fullDate
-                currentTransactions = [transaction]
-            } else {
-                currentTransactions.append(transaction)
+            if seen.insert(transaction.fullDate).inserted {
+                orderedDates.append(transaction.fullDate)
             }
         }
-
-        if !currentTransactions.isEmpty {
-            sections.append(TransactionSection(date: currentDate, transactions: currentTransactions))
+        return orderedDates.map { date in
+            TransactionSection(date: date, transactions: grouped[date] ?? [])
         }
-
-        return sections
     }
 
     public var body: some View {
@@ -134,17 +123,6 @@ public struct FeedView: View {
                 }
             }
 
-            if nextToken != nil {
-                HStack {
-                    Spacer()
-                    ProgressView()
-                        .task {
-                            await loadMore()
-                        }
-                    Spacer()
-                }
-                .listRowSeparator(.hidden)
-            }
         }
         .listStyle(.plain)
         .refreshable {
@@ -169,27 +147,35 @@ public struct FeedView: View {
             return
         }
 
+        // Show cached data immediately if available
+        let cached = await transactionService.cachedTransactions
+        if !cached.isEmpty {
+            transactions = cached
+            logger.info("Showing \(cached.count) cached transactions")
+            await refreshNewTransactions()
+            return
+        }
+
+        // No cache — fetch all pages, updating UI after each one
         isLoading = true
         errorMessage = nil
 
         do {
-            let result = try await transactionService.getTransactions(nextToken: nil, perPage: 50)
-            transactions = result.transactions
-            nextToken = result.nextToken
-            logger.info("Phase 1 complete, count: \(result.transactions.count), hasMore: \(result.nextToken != nil)")
-
-            isLoading = false
-
-            if result.nextToken == nil && !result.transactions.isEmpty {
-                await refreshNewTransactions()
-            }
+            var token: String? = nil
+            repeat {
+                let page = try await transactionService.fetchPage(nextToken: token, perPage: 100)
+                transactions.append(contentsOf: page.transactions)
+                token = page.nextToken
+                logger.debug("Page loaded, showing \(transactions.count) transactions, hasMore: \(token != nil)")
+            } while token != nil
         } catch {
-            errorMessage = error.localizedDescription
+            if transactions.isEmpty {
+                errorMessage = error.localizedDescription
+            }
             logger.error("Failed to load transactions: \(error.localizedDescription)")
-            isLoading = false
         }
 
-        logger.debug("loadTransactions completed")
+        isLoading = false
     }
 
     private func refreshNewTransactions() async {
@@ -198,7 +184,7 @@ public struct FeedView: View {
         logger.info("Checking for new transactions...")
 
         do {
-            let result = try await transactionService.refreshTransactions(perPage: 50)
+            let result = try await transactionService.refreshTransactions(perPage: 100)
             transactions = result.transactions
             logger.info("Refresh complete, total count: \(result.transactions.count)")
         } catch {
@@ -206,27 +192,5 @@ public struct FeedView: View {
         }
 
         isRefreshing = false
-    }
-
-    private func loadMore() async {
-        logger.debug("loadMore called, nextToken: \(nextToken ?? "nil")")
-        guard let token = nextToken, !isLoading else {
-            logger.debug("loadMore skipped - no token or already loading")
-            return
-        }
-
-        logger.info("Loading more transactions...")
-        isLoading = true
-
-        do {
-            let result = try await transactionService.getTransactions(nextToken: token, perPage: 50)
-            transactions.append(contentsOf: result.transactions)
-            nextToken = result.nextToken
-            logger.info("More transactions loaded, added: \(result.transactions.count), total: \(transactions.count), hasMore: \(result.nextToken != nil)")
-        } catch {
-            logger.error("Failed to load more transactions: \(error.localizedDescription)")
-        }
-
-        isLoading = false
     }
 }

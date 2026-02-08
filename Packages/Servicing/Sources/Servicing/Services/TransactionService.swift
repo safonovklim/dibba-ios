@@ -9,8 +9,8 @@ private let logger = Logger(subsystem: "ai.dibba.ios", category: "TransactionSer
 // MARK: - Transaction Service Protocol
 
 public protocol TransactionServicing: Sendable {
-    /// Get transactions with pagination
-    func getTransactions(nextToken: String?, perPage: Int) async throws -> TransactionListResult
+    /// Fetch a single page of transactions from the API and append to cache
+    func fetchPage(nextToken: String?, perPage: Int) async throws -> TransactionListResult
 
     /// Load all transactions up to a date
     func loadAllTransactions(untilDate: Date?) async throws -> [Transaction]
@@ -57,7 +57,6 @@ public actor TransactionService: TransactionServicing {
     )) private var _cachedTransactions: [Transaction]?
 
     // Task deduplication
-    private var getTransactionsTask: Task<TransactionListResult, any Error>?
     private var loadAllTask: Task<[Transaction], any Error>?
 
     public init() {}
@@ -68,106 +67,70 @@ public actor TransactionService: TransactionServicing {
         _cachedTransactions ?? []
     }
 
-    public func getTransactions(nextToken: String? = nil, perPage: Int = 100) async throws -> TransactionListResult {
-        logger.debug("getTransactions called, nextToken: \(nextToken ?? "nil"), perPage: \(perPage)")
+    public func fetchPage(nextToken: String? = nil, perPage: Int = 100) async throws -> TransactionListResult {
+        logger.debug("fetchPage called, nextToken: \(nextToken ?? "nil"), perPage: \(perPage)")
 
-        // Return in-flight request if it's for the same token
-        if let getTransactionsTask, nextToken == nil {
-            logger.debug("Returning in-flight request")
-            return try await getTransactionsTask.value
-        }
+        let data = try await client.listTransactions(nextToken: nextToken, perPage: perPage)
+        let page = data.list.map { Transaction(from: $0) }
 
-        // Return cache if available and not paginating
-        if let cached = _cachedTransactions, !cached.isEmpty, nextToken == nil {
-            logger.debug("Returning cached transactions, count: \(cached.count)")
-            return TransactionListResult(transactions: cached, nextToken: nil)
-        }
-
-        logger.info("Fetching transactions from API")
-
-        let task = Task<TransactionListResult, any Error> {
-            let data = try await client.listTransactions(nextToken: nextToken, perPage: perPage)
-            let transactions = data.list.map { Transaction(from: $0) }
-            logger.info("Transactions fetched, count: \(transactions.count), hasMore: \(data.nextToken != nil)")
-            return TransactionListResult(transactions: transactions, nextToken: data.nextToken)
-        }
-
-        if nextToken == nil {
-            getTransactionsTask = task
-        }
-
-        let result: TransactionListResult
-        do {
-            result = try await task.value
-        } catch {
-            logger.error("Failed to fetch transactions: \(error.localizedDescription)")
-            if nextToken == nil { getTransactionsTask = nil }
-            throw error
-        }
-        if nextToken == nil { getTransactionsTask = nil }
-
-        // Update cache with new transactions (append for pagination)
         $_cachedTransactions.withLock { cached in
-            if nextToken == nil {
-                cached = result.transactions
-                logger.debug("Cache updated with \(result.transactions.count) transactions")
-            } else {
-                var existing = cached ?? []
-                let existingIds = Set(existing.map(\.id))
-                let newTransactions = result.transactions.filter { !existingIds.contains($0.id) }
-                existing.append(contentsOf: newTransactions)
-                cached = existing
-                logger.debug("Cache appended with \(newTransactions.count) new transactions, total: \(existing.count)")
-            }
+            var existing = cached ?? []
+            let existingIds = Set(existing.map(\.id))
+            let newItems = page.filter { !existingIds.contains($0.id) }
+            existing.append(contentsOf: newItems)
+            cached = existing
+            logger.debug("fetchPage: appended \(newItems.count) to cache, total: \(existing.count)")
         }
 
-        return result
+        return TransactionListResult(transactions: page, nextToken: data.nextToken)
     }
 
     public func refreshTransactions(perPage: Int = 100) async throws -> TransactionListResult {
         let cached = _cachedTransactions ?? []
         guard !cached.isEmpty else {
-            logger.debug("refreshTransactions: no cache, falling back to getTransactions")
-            return try await getTransactions(nextToken: nil, perPage: perPage)
+            logger.debug("refreshTransactions: no cache, loading all pages")
+            var token: String? = nil
+            repeat {
+                let page = try await fetchPage(nextToken: token, perPage: perPage)
+                token = page.nextToken
+            } while token != nil
+            return TransactionListResult(transactions: _cachedTransactions ?? [], nextToken: nil)
         }
 
         let cachedIds = Set(cached.map(\.id))
-        var allNewTransactions: [Transaction] = []
-        var nextToken: String? = nil
+        var newTransactions: [Transaction] = []
+        var pageToken: String? = nil
         var foundOverlap = false
 
         logger.info("refreshTransactions: checking for new transactions, cached count: \(cached.count)")
 
         repeat {
-            let data = try await client.listTransactions(nextToken: nextToken, perPage: perPage)
-            let pageTransactions = data.list.map { Transaction(from: $0) }
-            logger.debug("refreshTransactions: fetched page with \(pageTransactions.count) transactions")
+            let data = try await client.listTransactions(nextToken: pageToken, perPage: perPage)
+            let page = data.list.map { Transaction(from: $0) }
+            logger.debug("refreshTransactions: fetched page with \(page.count) transactions")
 
-            for transaction in pageTransactions {
+            for transaction in page {
                 if cachedIds.contains(transaction.id) {
                     foundOverlap = true
                     break
                 }
-                allNewTransactions.append(transaction)
+                newTransactions.append(transaction)
             }
 
-            if foundOverlap {
-                break
-            }
+            if foundOverlap { break }
+            pageToken = data.nextToken
+        } while pageToken != nil
 
-            nextToken = data.nextToken
-        } while nextToken != nil
+        logger.info("refreshTransactions: found \(newTransactions.count) new transactions")
 
-        logger.info("refreshTransactions: found \(allNewTransactions.count) new transactions")
-
-        if !allNewTransactions.isEmpty {
+        if !newTransactions.isEmpty {
             $_cachedTransactions.withLock { cached in
-                var transactions = cached ?? []
-                let existingIds = Set(transactions.map(\.id))
-                let dedupedNew = allNewTransactions.filter { !existingIds.contains($0.id) }
-                transactions.insert(contentsOf: dedupedNew, at: 0)
-                cached = transactions
-                logger.debug("refreshTransactions: cache updated, total: \(transactions.count)")
+                var existing = cached ?? []
+                let existingIds = Set(existing.map(\.id))
+                let deduped = newTransactions.filter { !existingIds.contains($0.id) }
+                existing.insert(contentsOf: deduped, at: 0)
+                cached = existing
+                logger.debug("refreshTransactions: prepended \(deduped.count), total: \(existing.count)")
             }
         }
 
@@ -256,8 +219,6 @@ public actor TransactionService: TransactionServicing {
 
     public func clearCache() {
         $_cachedTransactions.withLock { $0 = nil }
-        getTransactionsTask?.cancel()
-        getTransactionsTask = nil
         loadAllTask?.cancel()
         loadAllTask = nil
     }
@@ -271,15 +232,11 @@ extension Transaction {
         if let typeString = dto.transactionType {
             transactionType = TransactionType(rawValue: typeString) ?? .unknown
         } else if dto.isPurchase == true {
-            transactionType = .purchase
+            transactionType = .posPurchase
         } else if dto.isTransfer == true {
             transactionType = .transfer
         } else if dto.isAtm == true {
             transactionType = .atm
-        } else if dto.isCredit == true {
-            transactionType = .credit
-        } else if dto.isDebit == true {
-            transactionType = .debit
         } else {
             transactionType = .unknown
         }

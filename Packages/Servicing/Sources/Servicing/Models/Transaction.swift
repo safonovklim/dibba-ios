@@ -3,31 +3,34 @@ import Foundation
 // MARK: - Transaction Type
 
 public enum TransactionType: String, Codable, Sendable, CaseIterable {
-    case purchase = "PURCHASE"
-    case transfer = "TRANSFER"
-    case atm = "ATM"
-    case credit = "CREDIT"
-    case debit = "DEBIT"
-    case unknown = "UNKNOWN"
+    case posPurchase = "pos_purchase"
+    case atm = "atm"
+    case transfer = "transfer"
+    case billPayment = "bill_payment"
+    case subscriptionPayment = "subscription_payment"
+    case loanPayment = "loan_payment"
+    case unknown = "unknown"
 
     public var displayName: String {
         switch self {
-        case .purchase: "Purchase"
-        case .transfer: "Transfer"
+        case .posPurchase: "Purchase"
         case .atm: "ATM"
-        case .credit: "Credit"
-        case .debit: "Debit"
+        case .transfer: "Transfer"
+        case .billPayment: "Bill Payment"
+        case .subscriptionPayment: "Subscription"
+        case .loanPayment: "Loan Payment"
         case .unknown: "Unknown"
         }
     }
 
     public var emoji: String {
         switch self {
-        case .purchase: "🛒"
-        case .transfer: "↔️"
+        case .posPurchase: "🛒"
         case .atm: "🏧"
-        case .credit: "💰"
-        case .debit: "💸"
+        case .transfer: "↔️"
+        case .billPayment: "🧾"
+        case .subscriptionPayment: "🔄"
+        case .loanPayment: "🏦"
         case .unknown: "❓"
         }
     }
@@ -181,11 +184,9 @@ public struct Transaction: Codable, Equatable, Sendable, Identifiable {
 
 public extension Transaction {
     var computedType: TransactionType {
-        if isPurchase { return .purchase }
+        if isPurchase { return .posPurchase }
         if isTransfer { return .transfer }
         if isAtm { return .atm }
-        if isCredit { return .credit }
-        if isDebit { return .debit }
         return transactionType
     }
 
@@ -213,17 +214,15 @@ public extension Transaction {
         name: String = "Test Transaction",
         amount: Double = -50.0,
         currency: String = "USD",
-        type: TransactionType = .purchase
+        type: TransactionType = .posPurchase
     ) -> Transaction {
         Transaction(
             id: id,
             name: name,
             amount: amount,
             currency: currency,
-            isCredit: type == .credit,
-            isDebit: type == .debit,
             isAtm: type == .atm,
-            isPurchase: type == .purchase,
+            isPurchase: type == .posPurchase,
             isTransfer: type == .transfer,
             transactionType: type
         )
