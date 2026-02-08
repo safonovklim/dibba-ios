@@ -5,6 +5,16 @@ import SwiftUI
 
 private let logger = Logger(subsystem: "ai.dibba.ios", category: "FeedView")
 
+// MARK: - Transaction Section
+
+private struct TransactionSection: Identifiable {
+    let date: String
+    let transactions: [Servicing.Transaction]
+    var id: String { date }
+}
+
+// MARK: - Feed View
+
 public struct FeedView: View {
     public init() {}
 
@@ -12,39 +22,60 @@ public struct FeedView: View {
 
     @State private var transactions: [Servicing.Transaction] = []
     @State private var isLoading = false
+    @State private var isRefreshing = false
     @State private var errorMessage: String?
     @State private var nextToken: String?
+    @State private var searchText = ""
+    @State private var selectedTransactionIndex: Int = 0
+    @State private var showingTransactionDetail = false
+
+    private var groupedTransactions: [TransactionSection] {
+        var sections: [TransactionSection] = []
+        var currentDate = ""
+        var currentTransactions: [Servicing.Transaction] = []
+
+        for transaction in transactions {
+            if transaction.fullDate != currentDate {
+                if !currentTransactions.isEmpty {
+                    sections.append(TransactionSection(date: currentDate, transactions: currentTransactions))
+                }
+                currentDate = transaction.fullDate
+                currentTransactions = [transaction]
+            } else {
+                currentTransactions.append(transaction)
+            }
+        }
+
+        if !currentTransactions.isEmpty {
+            sections.append(TransactionSection(date: currentDate, transactions: currentTransactions))
+        }
+
+        return sections
+    }
 
     public var body: some View {
-        let _ = logger.debug("body rendered - transactions: \(transactions.count), isLoading: \(isLoading), hasError: \(errorMessage != nil), hasMore: \(nextToken != nil)")
         Group {
             if isLoading && transactions.isEmpty {
-                let _ = logger.debug("Rendering loading state")
                 loadingView
             } else if let error = errorMessage, transactions.isEmpty {
-                let _ = logger.debug("Rendering error state: \(error)")
                 errorView(error)
             } else if transactions.isEmpty {
-                let _ = logger.debug("Rendering empty state")
                 emptyView
             } else {
-                let _ = logger.debug("Rendering transaction list with \(transactions.count) items")
                 transactionList
             }
         }
         .navigationTitle("Feed")
+        .searchable(text: $searchText, prompt: "Search transactions")
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                if isLoading && !transactions.isEmpty {
+                if (isLoading || isRefreshing) && !transactions.isEmpty {
                     ProgressView()
                 }
             }
         }
         .task {
             await loadTransactions()
-        }
-        .refreshable {
-            await loadTransactions(force: true)
         }
     }
 
@@ -85,8 +116,22 @@ public struct FeedView: View {
     @ViewBuilder
     private var transactionList: some View {
         List {
-            ForEach(transactions) { transaction in
-                TransactionRow(transaction: transaction)
+            ForEach(groupedTransactions) { section in
+                Section {
+                    ForEach(section.transactions) { transaction in
+                        Button {
+                            if let index = transactions.firstIndex(where: { $0.id == transaction.id }) {
+                                selectedTransactionIndex = index
+                                showingTransactionDetail = true
+                            }
+                        } label: {
+                            TransactionRow(transaction: transaction)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                } header: {
+                    Text(section.date)
+                }
             }
 
             if nextToken != nil {
@@ -102,12 +147,23 @@ public struct FeedView: View {
             }
         }
         .listStyle(.plain)
+        .refreshable {
+            await refreshNewTransactions()
+        }
+        .sheet(isPresented: $showingTransactionDetail) {
+            TransactionDetailDrawer(
+                transactions: transactions,
+                currentIndex: $selectedTransactionIndex
+            )
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
+        }
     }
 
     // MARK: - Data Loading
 
-    private func loadTransactions(force: Bool = false) async {
-        logger.info("loadTransactions started, force: \(force)")
+    private func loadTransactions() async {
+        logger.info("loadTransactions started")
         guard !isLoading else {
             logger.debug("loadTransactions skipped - already loading")
             return
@@ -120,14 +176,36 @@ public struct FeedView: View {
             let result = try await transactionService.getTransactions(nextToken: nil, perPage: 50)
             transactions = result.transactions
             nextToken = result.nextToken
-            logger.info("Transactions loaded successfully, count: \(result.transactions.count), hasMore: \(result.nextToken != nil)")
+            logger.info("Phase 1 complete, count: \(result.transactions.count), hasMore: \(result.nextToken != nil)")
+
+            isLoading = false
+
+            if result.nextToken == nil && !result.transactions.isEmpty {
+                await refreshNewTransactions()
+            }
         } catch {
             errorMessage = error.localizedDescription
             logger.error("Failed to load transactions: \(error.localizedDescription)")
+            isLoading = false
         }
 
-        isLoading = false
-        logger.debug("loadTransactions completed, isLoading: false")
+        logger.debug("loadTransactions completed")
+    }
+
+    private func refreshNewTransactions() async {
+        guard !isRefreshing else { return }
+        isRefreshing = true
+        logger.info("Checking for new transactions...")
+
+        do {
+            let result = try await transactionService.refreshTransactions(perPage: 50)
+            transactions = result.transactions
+            logger.info("Refresh complete, total count: \(result.transactions.count)")
+        } catch {
+            logger.error("Failed to refresh transactions: \(error.localizedDescription)")
+        }
+
+        isRefreshing = false
     }
 
     private func loadMore() async {
@@ -147,86 +225,8 @@ public struct FeedView: View {
             logger.info("More transactions loaded, added: \(result.transactions.count), total: \(transactions.count), hasMore: \(result.nextToken != nil)")
         } catch {
             logger.error("Failed to load more transactions: \(error.localizedDescription)")
-            // Silently fail for pagination errors
         }
 
         isLoading = false
-    }
-}
-
-// MARK: - Transaction Row
-
-private struct TransactionRow: View {
-    let transaction: Servicing.Transaction
-
-    var body: some View {
-        HStack(spacing: 12) {
-            // Type indicator
-            ZStack {
-                Circle()
-                    .fill(backgroundColor)
-                    .frame(width: 44, height: 44)
-
-                Text(transaction.transactionType.emoji)
-                    .font(.title3)
-            }
-
-            // Details
-            VStack(alignment: .leading, spacing: 4) {
-                Text(transaction.name)
-                    .font(.body)
-                    .fontWeight(.medium)
-                    .lineLimit(1)
-
-                HStack(spacing: 4) {
-                    if !transaction.orgName.isEmpty {
-                        Text(transaction.orgName)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                    }
-
-                    if !transaction.merchantCategory.isEmpty {
-                        Text("•")
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
-                        Text(transaction.merchantCategory)
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
-                            .lineLimit(1)
-                    }
-                }
-            }
-
-            Spacer()
-
-            // Amount
-            VStack(alignment: .trailing, spacing: 4) {
-                Text(transaction.formattedAmount)
-                    .font(.body)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(amountColor)
-
-                Text(formattedDate)
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-            }
-        }
-        .padding(.vertical, 4)
-    }
-
-    private var backgroundColor: Color {
-        transaction.isIncome ? Color.green.opacity(0.15) : Color.red.opacity(0.1)
-    }
-
-    private var amountColor: Color {
-        transaction.isIncome ? .green : .primary
-    }
-
-    private var formattedDate: String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .short
-        formatter.timeStyle = .none
-        return formatter.string(from: transaction.createdAt)
     }
 }

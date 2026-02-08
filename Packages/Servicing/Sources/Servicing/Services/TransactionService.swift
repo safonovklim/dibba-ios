@@ -27,6 +27,9 @@ public protocol TransactionServicing: Sendable {
     /// Get cached transactions
     var cachedTransactions: [Transaction] { get async }
 
+    /// Refresh transactions incrementally (fetch new ones until overlap with cache)
+    func refreshTransactions(perPage: Int) async throws -> TransactionListResult
+
     /// Clear cached data
     func clearCache() async
 }
@@ -119,6 +122,57 @@ public actor TransactionService: TransactionServicing {
         }
 
         return result
+    }
+
+    public func refreshTransactions(perPage: Int = 100) async throws -> TransactionListResult {
+        let cached = _cachedTransactions ?? []
+        guard !cached.isEmpty else {
+            logger.debug("refreshTransactions: no cache, falling back to getTransactions")
+            return try await getTransactions(nextToken: nil, perPage: perPage)
+        }
+
+        let cachedIds = Set(cached.map(\.id))
+        var allNewTransactions: [Transaction] = []
+        var nextToken: String? = nil
+        var foundOverlap = false
+
+        logger.info("refreshTransactions: checking for new transactions, cached count: \(cached.count)")
+
+        repeat {
+            let data = try await client.listTransactions(nextToken: nextToken, perPage: perPage)
+            let pageTransactions = data.list.map { Transaction(from: $0) }
+            logger.debug("refreshTransactions: fetched page with \(pageTransactions.count) transactions")
+
+            for transaction in pageTransactions {
+                if cachedIds.contains(transaction.id) {
+                    foundOverlap = true
+                    break
+                }
+                allNewTransactions.append(transaction)
+            }
+
+            if foundOverlap {
+                break
+            }
+
+            nextToken = data.nextToken
+        } while nextToken != nil
+
+        logger.info("refreshTransactions: found \(allNewTransactions.count) new transactions")
+
+        if !allNewTransactions.isEmpty {
+            $_cachedTransactions.withLock { cached in
+                var transactions = cached ?? []
+                let existingIds = Set(transactions.map(\.id))
+                let dedupedNew = allNewTransactions.filter { !existingIds.contains($0.id) }
+                transactions.insert(contentsOf: dedupedNew, at: 0)
+                cached = transactions
+                logger.debug("refreshTransactions: cache updated, total: \(transactions.count)")
+            }
+        }
+
+        let updatedCache = _cachedTransactions ?? []
+        return TransactionListResult(transactions: updatedCache, nextToken: nil)
     }
 
     public func loadAllTransactions(untilDate: Date? = nil) async throws -> [Transaction] {
