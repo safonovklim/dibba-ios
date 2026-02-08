@@ -16,6 +16,7 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "../Navigation"),
+        .package(path: "../UI"),
         .package(url: "https://github.com/auth0/Auth0.swift", from: "2.0.0"),
         .package(url: "https://github.com/pointfreeco/swift-dependencies", from: "1.0.0"),
     ],
@@ -24,6 +25,7 @@ let package = Package(
             name: "Auth",
             dependencies: [
                 "Navigation",
+                "UI",
                 .product(name: "Auth0", package: "Auth0.swift"),
                 .product(name: "Dependencies", package: "swift-dependencies"),
             ]

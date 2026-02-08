@@ -13,6 +13,36 @@ private struct TransactionSection: Identifiable {
     var id: String { date }
 }
 
+// MARK: - Date Formatting
+
+private let sectionDateParser: DateFormatter = {
+    let f = DateFormatter()
+    f.dateFormat = "yyyy-MM-dd"
+    f.locale = Locale(identifier: "en_US_POSIX")
+    return f
+}()
+
+private func formatSectionDate(_ dateString: String) -> String {
+    guard let date = sectionDateParser.date(from: dateString) else { return dateString }
+
+    let calendar = Calendar.current
+    if calendar.isDateInToday(date) {
+        return "Today"
+    }
+    if calendar.isDateInYesterday(date) {
+        return "Yesterday"
+    }
+
+    let formatter = DateFormatter()
+    formatter.locale = Locale.current
+    if calendar.component(.year, from: date) == calendar.component(.year, from: Date()) {
+        formatter.dateFormat = "MMMM d"
+    } else {
+        formatter.dateFormat = "MMMM d, yyyy"
+    }
+    return formatter.string(from: date)
+}
+
 // MARK: - Feed View
 
 public struct FeedView: View {
@@ -119,7 +149,15 @@ public struct FeedView: View {
                         .buttonStyle(.plain)
                     }
                 } header: {
-                    Text(section.date)
+                    HStack(spacing: 8) {
+                        Text(formatSectionDate(section.date))
+                            .font(.title3.bold())
+                            .foregroundStyle(.primary)
+                        Text("\(section.transactions.count)")
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(.secondary)
+                    }
+                    .textCase(nil)
                 }
             }
 
@@ -133,7 +171,7 @@ public struct FeedView: View {
                 transactions: transactions,
                 currentIndex: $selectedTransactionIndex
             )
-            .presentationDetents([.large])
+            .presentationDetents([.fraction(0.7), .large])
             .presentationDragIndicator(.visible)
         }
     }

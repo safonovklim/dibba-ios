@@ -19,11 +19,12 @@ let package = Package(
         .package(path: "../Auth"),
         .package(path: "../Servicing"),
         .package(path: "../ApiClient"),
+        .package(path: "../UI"),
     ],
     targets: [
         .target(
             name: "Profile",
-            dependencies: ["Auth", "Servicing", "ApiClient"]
+            dependencies: ["Auth", "Servicing", "ApiClient", "UI"]
         ),
         .testTarget(
             name: "ProfileTests",

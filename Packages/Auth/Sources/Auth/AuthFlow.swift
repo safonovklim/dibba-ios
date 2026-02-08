@@ -2,6 +2,7 @@ import Dependencies
 import Navigation
 import os.log
 import SwiftUI
+import UI
 import UIKit
 
 private let logger = Logger(subsystem: "ai.dibba.ios", category: "AuthFlow")
@@ -86,11 +87,11 @@ private struct LoginScreen: View {
                 .font(.system(size: 80))
                 .foregroundStyle(.blue)
 
-            Text("Dibba")
+            Text("Dibba.ai")
                 .font(.largeTitle)
                 .fontWeight(.bold)
 
-            Text("Sign in to continue")
+            Text("Save for your dream with AI")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
 
@@ -112,7 +113,7 @@ private struct LoginScreen: View {
                 } label: {
                     HStack {
                         Image(systemName: "person.badge.key.fill")
-                        Text("Sign in with Auth0")
+                        Text("Sign in")
                     }
                     .font(.headline)
                     .frame(maxWidth: .infinity)
@@ -122,7 +123,12 @@ private struct LoginScreen: View {
             }
 
             Spacer()
-                .frame(height: 60)
+                .frame(height: 40)
+
+            LegalFooter()
+
+            Spacer()
+                .frame(height: 20)
         }
         .padding(.horizontal, 32)
         .alert("Error", isPresented: $showingError) {

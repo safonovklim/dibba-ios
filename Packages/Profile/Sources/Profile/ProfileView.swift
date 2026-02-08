@@ -4,6 +4,7 @@ import Dependencies
 import os.log
 import Servicing
 import SwiftUI
+import UI
 
 private let logger = Logger(subsystem: "ai.dibba.ios", category: "ProfileView")
 
@@ -146,7 +147,12 @@ public struct ProfileView: View {
                 subscriptionSection(profile: profile)
                 preferencesSection(profile: profile)
                 notificationsSection(profile: profile)
-                logoutSection
+                actionsSection
+
+                Section {} footer: {
+                    LegalFooter()
+                        .frame(maxWidth: .infinity)
+                }
             } else if isLoadingProfile {
                 Section {
                     HStack {
@@ -175,11 +181,17 @@ public struct ProfileView: View {
     @Dependency(\.authService) private var authService
     @Dependency(\.accountManager) private var accountManager
     @Dependency(\.profileService) private var profileService
+    @Dependency(\.transactionService) private var transactionService
+    @Dependency(\.targetService) private var targetService
+    @Dependency(\.reportService) private var reportService
 
     @State private var profile: Servicing.Profile?
     @State private var isLoadingProfile = false
     @State private var isUpdating = false
     @State private var showLogoutConfirmation = false
+    @State private var showDeleteAccountConfirmation = false
+    @State private var showCacheResetConfirmation = false
+    @State private var showCacheResetSuccess = false
 
     private let onLogout: (() -> Void)?
 
@@ -445,19 +457,66 @@ public struct ProfileView: View {
         }
     }
 
-    // MARK: - Logout Section
+    // MARK: - Actions Section
 
     @ViewBuilder
-    private var logoutSection: some View {
-        Section {
+    private var actionsSection: some View {
+        Section("Actions") {
+            Button {
+                if let url = URL(string: "mailto:support@dibba.ai") {
+                    UIApplication.shared.open(url)
+                }
+            } label: {
+                Label("Contact Support", systemImage: "envelope")
+            }
+
+            Button {
+                showCacheResetConfirmation = true
+            } label: {
+                Label("Reset Cache", systemImage: "arrow.triangle.2.circlepath")
+            }
+            .alert("Reset Cache", isPresented: $showCacheResetConfirmation) {
+                Button("Cancel", role: .cancel) {}
+                Button("Reset", role: .destructive) {
+                    Task {
+                        await transactionService.clearCache()
+                        await targetService.clearCache()
+                        await reportService.clearCache()
+                        await profileService.clearCache()
+                        showCacheResetSuccess = true
+                    }
+                }
+            } message: {
+                Text("This will clear all cached data. The app will re-download everything on next launch.")
+            }
+            .alert("Cache Cleared", isPresented: $showCacheResetSuccess) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text("All cached data has been cleared.")
+            }
+
+            Button(role: .destructive) {
+                showDeleteAccountConfirmation = true
+            } label: {
+                Label("Delete Account", systemImage: "trash")
+                    .foregroundStyle(.red)
+            }
+            .alert("Delete Account", isPresented: $showDeleteAccountConfirmation) {
+                Button("Cancel", role: .cancel) {}
+                Button("Delete Account", role: .destructive) {
+                    if let url = URL(string: "mailto:support@dibba.ai?subject=Delete%20My%20Account") {
+                        UIApplication.shared.open(url)
+                    }
+                }
+            } message: {
+                Text("This will send a request to delete your account and all associated data. This action cannot be undone.")
+            }
+
             Button(role: .destructive) {
                 showLogoutConfirmation = true
             } label: {
-                HStack {
-                    Spacer()
-                    Text("Sign Out")
-                    Spacer()
-                }
+                Label("Sign Out", systemImage: "rectangle.portrait.and.arrow.right")
+                    .foregroundStyle(.red)
             }
             .alert("Sign Out", isPresented: $showLogoutConfirmation) {
                 Button("Cancel", role: .cancel) {}
