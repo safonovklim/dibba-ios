@@ -167,7 +167,7 @@ public struct ProfileView: View {
         .listStyle(.insetGrouped)
         .listSectionSpacing(16)
         .contentMargins(.horizontal, 16, for: .scrollContent)
-        .navigationTitle("Settings")
+        .navigationTitle("Profile")
         .task {
             await loadData()
         }
@@ -301,7 +301,7 @@ public struct ProfileView: View {
         Section("Preferences") {
             NavigationLink {
                 MultiSelectView(
-                    title: "Dreams",
+                    title: "Main Goal",
                     options: GoalOption.allCases,
                     selected: Set(profile.goals),
                     onUpdate: { newValues in
@@ -310,7 +310,7 @@ public struct ProfileView: View {
                     }
                 )
             } label: {
-                LabeledContent("Dreams") {
+                LabeledContent("Main Goal") {
                     Text(formatSelected(profile.goals, from: GoalOption.self))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
@@ -373,7 +373,7 @@ public struct ProfileView: View {
 
             NavigationLink {
                 SingleSelectView(
-                    title: "Age Group",
+                    title: "Age",
                     options: AgeOption.allCases,
                     selected: profile.age,
                     onUpdate: { newValue in
@@ -382,7 +382,7 @@ public struct ProfileView: View {
                     }
                 )
             } label: {
-                LabeledContent("Age Group") {
+                LabeledContent("Age") {
                     if let age = profile.age, let option = AgeOption(rawValue: age) {
                         Text(option.label)
                             .foregroundStyle(.secondary)

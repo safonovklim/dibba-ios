@@ -31,29 +31,29 @@ public final class TabBarCoordinator: CompositionCoordinating {
         let dashboardNav = makeNavController(
             root: DashboardView().wrapped(),
             title: "Dashboard",
-            systemImage: "rectangle.grid.2x2"
+            systemImage: "house.fill"
         )
 
         logger.debug("Creating FeedView")
         let feedNav = makeNavController(
             root: FeedView().wrapped(),
             title: "Feed",
-            systemImage: "dot.radiowaves.left.and.right"
+            systemImage: "magnifyingglass"
         )
 
         logger.debug("Creating ProfileView")
         let profileNav = makeNavController(
             root: ProfileView(onLogout: onLogout).wrapped(),
-            title: "Settings",
-            systemImage: "gearshape.fill"
+            title: "Profile",
+            systemImage: "person.fill"
         )
 
         tabBarController.viewControllers = [
-            dashboardNav,
             feedNav,
+            dashboardNav,
             profileNav,
         ]
-        tabBarController.selectedIndex = 0
+        tabBarController.selectedIndex = 1
         logger.info("Tab bar setup complete")
     }
 

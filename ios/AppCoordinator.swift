@@ -41,6 +41,8 @@ final class AppCoordinator: NavigationFlowCoordinating {
     @Dependency(\.firstLaunchService) var firstLaunchService
     @Dependency(\.appResetService) var appResetService
     @Dependency(\.appResetServiceRegistrar) var appResetServiceRegistrar
+    @Dependency(\.profileService) var profileService
+    @Dependency(\.transactionService) var transactionService
 
     func start() {
         logger.info("AppCoordinator.start()")
@@ -158,7 +160,13 @@ final class AppCoordinator: NavigationFlowCoordinating {
         // Remove existing child
         removeChild()
 
-        // Note: Data is loaded lazily in each view's .task modifier
+        // Preload profile and transactions so views hit warm cache
+        Task {
+            async let profilePreload: () = preloadProfile()
+            async let transactionsPreload: () = preloadTransactions()
+            _ = await (profilePreload, transactionsPreload)
+            logger.info("Data preloading complete")
+        }
 
         let tabBarCoordinator = TabBarCoordinator(
             onLogout: { [weak self] in
@@ -172,6 +180,24 @@ final class AppCoordinator: NavigationFlowCoordinating {
             animated: true
         )
         logger.info("TabBarCoordinator set as root")
+    }
+
+    private func preloadProfile() async {
+        do {
+            _ = try await profileService.getProfile(force: false)
+            logger.info("Profile preloaded")
+        } catch {
+            logger.warning("Profile preload failed: \(error.localizedDescription)")
+        }
+    }
+
+    private func preloadTransactions() async {
+        do {
+            _ = try await transactionService.refreshTransactions(perPage: 100)
+            logger.info("Transactions preloaded")
+        } catch {
+            logger.warning("Transactions preload failed: \(error.localizedDescription)")
+        }
     }
 
     private func handleLogout() {
